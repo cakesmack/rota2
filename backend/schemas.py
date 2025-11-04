@@ -36,6 +36,8 @@ class ShiftBase(BaseModel):
     start_time: time
     end_time: time
     shift_type: Optional[str] = None
+    is_holiday: Optional[bool] = False
+    is_day_off: Optional[bool] = False
     notes: Optional[str] = None
 
 
@@ -49,6 +51,8 @@ class ShiftUpdate(BaseModel):
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     shift_type: Optional[str] = None
+    is_holiday: Optional[bool] = None
+    is_day_off: Optional[bool] = None
     notes: Optional[str] = None
 
 

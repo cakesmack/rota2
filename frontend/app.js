@@ -179,11 +179,26 @@ function renderRotaTable() {
 
 // Create shift badge HTML
 function createShiftBadge(shift) {
-    const shiftTypeClass = shift.shift_type ? shift.shift_type.toLowerCase() : '';
+    let badgeClass = 'shift-badge';
+    let badgeContent = '';
+
+    // Determine badge style based on status
+    if (shift.is_holiday) {
+        badgeClass += ' holiday-badge';
+        badgeContent = `<span class="shift-status"><i class="fas fa-umbrella-beach mr-1"></i>Holiday</span>`;
+    } else if (shift.is_day_off) {
+        badgeClass += ' day-off-badge';
+        badgeContent = `<span class="shift-status"><i class="fas fa-coffee mr-1"></i>Day Off</span>`;
+    } else {
+        badgeContent = `<span class="shift-time">${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}</span>`;
+        if (shift.shift_type) {
+            badgeContent += `<span class="shift-type">${shift.shift_type}</span>`;
+        }
+    }
+
     return `
-        <div class="shift-badge ${shiftTypeClass} mb-2" onclick="editShift(${shift.id}, event)">
-            <span class="shift-time">${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}</span>
-            ${shift.shift_type ? `<span class="shift-type">${shift.shift_type}</span>` : ''}
+        <div class="${badgeClass} mb-2" onclick="editShift(${shift.id}, event)">
+            ${badgeContent}
             <div class="delete-shift" onclick="deleteShift(${shift.id}, event)">
                 <i class="fas fa-times"></i>
             </div>
@@ -320,7 +335,9 @@ function openShiftModal(staff, dateStr, shiftId = null) {
             document.getElementById('shiftId').value = shift.id;
             document.getElementById('shiftStartTime').value = formatTime(shift.start_time);
             document.getElementById('shiftEndTime').value = formatTime(shift.end_time);
-            document.getElementById('shiftType').value = shift.shift_type || '';
+            document.getElementById('shiftRole').value = shift.shift_type || '';
+            document.getElementById('shiftIsHoliday').checked = shift.is_holiday || false;
+            document.getElementById('shiftIsDayOff').checked = shift.is_day_off || false;
             document.getElementById('shiftNotes').value = shift.notes || '';
         }
     } else {
@@ -426,7 +443,9 @@ function setupEventListeners() {
             date: document.getElementById('shiftDate').value,
             start_time: document.getElementById('shiftStartTime').value,
             end_time: document.getElementById('shiftEndTime').value,
-            shift_type: document.getElementById('shiftType').value || null,
+            shift_type: document.getElementById('shiftRole').value || null,
+            is_holiday: document.getElementById('shiftIsHoliday').checked,
+            is_day_off: document.getElementById('shiftIsDayOff').checked,
             notes: document.getElementById('shiftNotes').value || null
         };
 

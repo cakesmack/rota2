@@ -146,14 +146,18 @@
                     <input type="time" id="shiftEndTime" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <label class="block text-gray-700 font-semibold mb-2">Shift Type</label>
-                    <select id="shiftType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Select type</option>
-                        <option value="Morning">Morning</option>
-                        <option value="Afternoon">Afternoon</option>
-                        <option value="Evening">Evening</option>
-                        <option value="Night">Night</option>
-                    </select>
+                    <label class="block text-gray-700 font-semibold mb-2">Role (optional)</label>
+                    <input type="text" id="shiftRole" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., Duty Manager, Shift Manager">
+                </div>
+                <div class="flex gap-4">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="shiftIsHoliday" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <span class="ml-2 text-gray-700">On Holiday</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="shiftIsDayOff" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <span class="ml-2 text-gray-700">Day Off</span>
+                    </label>
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Notes</label>

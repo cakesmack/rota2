@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Time, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Time, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -23,7 +23,9 @@ class Shift(Base):
     date = Column(Date, nullable=False, index=True)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    shift_type = Column(String)  # e.g., "Morning", "Evening", "Night"
+    shift_type = Column(String)  # Repurposed for role: e.g., "Duty Manager", "Shift Manager"
+    is_holiday = Column(Boolean, default=False)
+    is_day_off = Column(Boolean, default=False)
     notes = Column(String)
 
     staff = relationship("Staff", back_populates="shifts")
