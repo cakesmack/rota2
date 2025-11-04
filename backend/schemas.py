@@ -46,8 +46,7 @@ class ShiftCreate(ShiftBase):
 
 
 class ShiftUpdate(BaseModel):
-    staff_id: Optional[int] = None
-    date: Optional[date] = None
+    # staff_id and date should not be updatable - create a new shift instead
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     shift_type: Optional[str] = None

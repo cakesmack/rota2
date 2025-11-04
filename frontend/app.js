@@ -492,16 +492,33 @@ function setupEventListeners() {
         const isHoliday = document.getElementById('shiftIsHoliday').checked;
         const isDayOff = document.getElementById('shiftIsDayOff').checked;
 
-        const shiftData = {
-            staff_id: parseInt(document.getElementById('shiftStaffId').value),
-            date: document.getElementById('shiftDate').value,
-            start_time: (isHoliday || isDayOff) ? null : (document.getElementById('shiftStartTime').value || null),
-            end_time: (isHoliday || isDayOff) ? null : (document.getElementById('shiftEndTime').value || null),
-            shift_type: document.getElementById('shiftRole').value || null,
-            is_holiday: isHoliday,
-            is_day_off: isDayOff,
-            notes: document.getElementById('shiftNotes').value || null
-        };
+        // Build shift data object
+        const shiftData = {};
+
+        // For new shifts, include staff_id and date
+        if (!shiftId) {
+            shiftData.staff_id = parseInt(document.getElementById('shiftStaffId').value);
+            shiftData.date = document.getElementById('shiftDate').value;
+        }
+
+        // Always include holiday/day-off status
+        shiftData.is_holiday = isHoliday;
+        shiftData.is_day_off = isDayOff;
+
+        // Only add time fields if not holiday/day-off
+        if (!isHoliday && !isDayOff) {
+            const startTime = document.getElementById('shiftStartTime').value;
+            const endTime = document.getElementById('shiftEndTime').value;
+            if (startTime) shiftData.start_time = startTime;
+            if (endTime) shiftData.end_time = endTime;
+        }
+
+        // Add optional fields only if they have values
+        const role = document.getElementById('shiftRole').value;
+        if (role) shiftData.shift_type = role;
+
+        const notes = document.getElementById('shiftNotes').value;
+        if (notes) shiftData.notes = notes;
 
         console.log('Submitting shift data:', shiftData);
 
