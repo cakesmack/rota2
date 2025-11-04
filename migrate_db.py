@@ -38,6 +38,11 @@ def migrate_database():
         else:
             print("✓ 'is_day_off' column already exists")
 
+        # Note: SQLite doesn't support modifying column constraints directly
+        # start_time and end_time are now nullable for holiday/day-off shifts
+        # This doesn't affect existing data, only new inserts
+        print("\nNote: Time fields (start_time, end_time) are now optional for holiday/day-off shifts.")
+
         conn.commit()
         conn.close()
 
@@ -47,7 +52,8 @@ def migrate_database():
     except Exception as e:
         print(f"\n❌ Migration failed: {e}")
         print("\nIf migration fails, you can delete the database and start fresh:")
-        print("  rm rota.db")
+        print("  On Windows: del rota.db")
+        print("  On Mac/Linux: rm rota.db")
         return False
 
     return True

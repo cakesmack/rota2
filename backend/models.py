@@ -21,8 +21,8 @@ class Shift(Base):
     id = Column(Integer, primary_key=True, index=True)
     staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
     date = Column(Date, nullable=False, index=True)
-    start_time = Column(Time, nullable=False)
-    end_time = Column(Time, nullable=False)
+    start_time = Column(Time, nullable=True)  # Optional for holidays/day-off
+    end_time = Column(Time, nullable=True)  # Optional for holidays/day-off
     shift_type = Column(String)  # Repurposed for role: e.g., "Duty Manager", "Shift Manager"
     is_holiday = Column(Boolean, default=False)
     is_day_off = Column(Boolean, default=False)

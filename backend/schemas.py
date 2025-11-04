@@ -33,8 +33,8 @@ class Staff(StaffBase):
 class ShiftBase(BaseModel):
     staff_id: int
     date: date
-    start_time: time
-    end_time: time
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
     shift_type: Optional[str] = None
     is_holiday: Optional[bool] = False
     is_day_off: Optional[bool] = False

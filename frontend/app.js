@@ -92,6 +92,11 @@ function calculateWeeklyHours(staffId) {
     let totalMinutes = 0;
 
     staffShifts.forEach(shift => {
+        // Skip holiday and day-off shifts from hours calculation
+        if (shift.is_holiday || shift.is_day_off || !shift.start_time || !shift.end_time) {
+            return;
+        }
+
         const [startHour, startMinute] = shift.start_time.split(':').map(Number);
         const [endHour, endMinute] = shift.end_time.split(':').map(Number);
 
@@ -490,8 +495,8 @@ function setupEventListeners() {
         const shiftData = {
             staff_id: parseInt(document.getElementById('shiftStaffId').value),
             date: document.getElementById('shiftDate').value,
-            start_time: (isHoliday || isDayOff) ? '00:00' : document.getElementById('shiftStartTime').value,
-            end_time: (isHoliday || isDayOff) ? '00:00' : document.getElementById('shiftEndTime').value,
+            start_time: (isHoliday || isDayOff) ? null : document.getElementById('shiftStartTime').value,
+            end_time: (isHoliday || isDayOff) ? null : document.getElementById('shiftEndTime').value,
             shift_type: document.getElementById('shiftRole').value || null,
             is_holiday: isHoliday,
             is_day_off: isDayOff,
