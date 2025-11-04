@@ -495,13 +495,15 @@ function setupEventListeners() {
         const shiftData = {
             staff_id: parseInt(document.getElementById('shiftStaffId').value),
             date: document.getElementById('shiftDate').value,
-            start_time: (isHoliday || isDayOff) ? null : document.getElementById('shiftStartTime').value,
-            end_time: (isHoliday || isDayOff) ? null : document.getElementById('shiftEndTime').value,
+            start_time: (isHoliday || isDayOff) ? null : (document.getElementById('shiftStartTime').value || null),
+            end_time: (isHoliday || isDayOff) ? null : (document.getElementById('shiftEndTime').value || null),
             shift_type: document.getElementById('shiftRole').value || null,
             is_holiday: isHoliday,
             is_day_off: isDayOff,
             notes: document.getElementById('shiftNotes').value || null
         };
+
+        console.log('Submitting shift data:', shiftData);
 
         try {
             let response;
@@ -526,7 +528,9 @@ function setupEventListeners() {
                 closeShiftModal();
                 loadWeekRota();
             } else {
-                showToast('Error saving shift', 'error');
+                const errorData = await response.json();
+                console.error('Server error:', errorData);
+                showToast(`Error saving shift: ${errorData.detail || 'Validation failed'}`, 'error');
             }
         } catch (error) {
             console.error('Error:', error);
