@@ -529,7 +529,15 @@ function setupEventListeners() {
                 loadWeekRota();
             } else {
                 const errorData = await response.json();
-                console.error('Server error:', errorData);
+                console.error('Full server error response:', JSON.stringify(errorData, null, 2));
+
+                // Extract detailed validation errors
+                if (errorData.detail && Array.isArray(errorData.detail)) {
+                    errorData.detail.forEach(err => {
+                        console.error(`  - Field: ${err.loc?.join('.')}, Error: ${err.msg}`);
+                    });
+                }
+
                 showToast(`Error saving shift: ${errorData.detail || 'Validation failed'}`, 'error');
             }
         } catch (error) {
