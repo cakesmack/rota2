@@ -345,6 +345,9 @@ function openShiftModal(staff, dateStr, shiftId = null) {
         document.getElementById('shiftId').value = '';
     }
 
+    // Update time field state based on holiday/day-off checkboxes
+    toggleTimeFields();
+
     modal.classList.add('active');
 }
 
@@ -387,8 +390,51 @@ async function deleteShift(shiftId, event) {
     }
 }
 
+// Toggle time fields based on holiday/day-off status
+function toggleTimeFields() {
+    const isHoliday = document.getElementById('shiftIsHoliday').checked;
+    const isDayOff = document.getElementById('shiftIsDayOff').checked;
+    const startTimeInput = document.getElementById('shiftStartTime');
+    const endTimeInput = document.getElementById('shiftEndTime');
+    const roleInput = document.getElementById('shiftRole');
+
+    if (isHoliday || isDayOff) {
+        // Disable time fields
+        startTimeInput.disabled = true;
+        endTimeInput.disabled = true;
+        roleInput.disabled = true;
+        startTimeInput.required = false;
+        endTimeInput.required = false;
+        startTimeInput.value = '';
+        endTimeInput.value = '';
+        roleInput.value = '';
+    } else {
+        // Enable time fields
+        startTimeInput.disabled = false;
+        endTimeInput.disabled = false;
+        roleInput.disabled = false;
+        startTimeInput.required = true;
+        endTimeInput.required = true;
+    }
+}
+
 // Setup event listeners
 function setupEventListeners() {
+    // Holiday and day-off checkbox listeners
+    document.getElementById('shiftIsHoliday').addEventListener('change', function() {
+        if (this.checked) {
+            document.getElementById('shiftIsDayOff').checked = false;
+        }
+        toggleTimeFields();
+    });
+
+    document.getElementById('shiftIsDayOff').addEventListener('change', function() {
+        if (this.checked) {
+            document.getElementById('shiftIsHoliday').checked = false;
+        }
+        toggleTimeFields();
+    });
+
     // Staff form submission
     document.getElementById('staffForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -438,14 +484,17 @@ function setupEventListeners() {
         e.preventDefault();
 
         const shiftId = document.getElementById('shiftId').value;
+        const isHoliday = document.getElementById('shiftIsHoliday').checked;
+        const isDayOff = document.getElementById('shiftIsDayOff').checked;
+
         const shiftData = {
             staff_id: parseInt(document.getElementById('shiftStaffId').value),
             date: document.getElementById('shiftDate').value,
-            start_time: document.getElementById('shiftStartTime').value,
-            end_time: document.getElementById('shiftEndTime').value,
+            start_time: (isHoliday || isDayOff) ? '00:00' : document.getElementById('shiftStartTime').value,
+            end_time: (isHoliday || isDayOff) ? '00:00' : document.getElementById('shiftEndTime').value,
             shift_type: document.getElementById('shiftRole').value || null,
-            is_holiday: document.getElementById('shiftIsHoliday').checked,
-            is_day_off: document.getElementById('shiftIsDayOff').checked,
+            is_holiday: isHoliday,
+            is_day_off: isDayOff,
             notes: document.getElementById('shiftNotes').value || null
         };
 

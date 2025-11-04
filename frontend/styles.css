@@ -3,6 +3,14 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
 }
 
+/* Disabled input fields styling */
+input:disabled,
+textarea:disabled {
+    background-color: #f3f4f6 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+}
+
 /* Modal styles */
 .modal {
     display: none;
