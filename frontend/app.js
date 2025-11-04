@@ -152,7 +152,7 @@ function renderRotaTable() {
             const dateStr = formatDate(cellDate);
 
             const dayCell = document.createElement('td');
-            dayCell.className = 'py-2 px-2 text-center border-l border-gray-200 align-top';
+            dayCell.className = 'py-1 px-2 text-center border-l border-gray-200 align-top';
 
             // Find shifts for this staff member on this day
             const dayShifts = currentShifts.filter(shift =>
@@ -166,7 +166,8 @@ function renderRotaTable() {
                 dayCell.innerHTML = shiftsHtml + addButton;
             } else {
                 dayCell.className += ' shift-cell empty-shift-cell';
-                dayCell.innerHTML = '';  // No hover text
+                dayCell.innerHTML = '<div class="empty-cell-content"></div>';
+                dayCell.onclick = () => openShiftModal(staff, dateStr);
             }
 
             row.appendChild(dayCell);
