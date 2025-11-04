@@ -47,6 +47,26 @@ function updateWeekDisplay() {
     document.getElementById('weekDisplay').textContent = `Week ${getWeekNumber(currentWeekStart)}`;
     document.getElementById('weekDates').textContent =
         `${formatDisplayDate(currentWeekStart)} - ${formatDisplayDate(weekEnd)}`;
+
+    // Update date picker to show current week's Monday
+    document.getElementById('weekPicker').value = formatDate(currentWeekStart);
+}
+
+// Get Monday of the week for a given date
+function getMondayOfWeek(date) {
+    const day = date.getDay();
+    const diff = date.getDate() - (day === 0 ? 6 : day - 1); // adjust when day is Sunday
+    const monday = new Date(date);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+}
+
+// Jump to a specific week
+function jumpToWeek(dateStr) {
+    const selectedDate = new Date(dateStr);
+    currentWeekStart = getMondayOfWeek(selectedDate);
+    loadWeekRota();
 }
 
 // Get week number
@@ -425,6 +445,13 @@ function toggleTimeFields() {
 
 // Setup event listeners
 function setupEventListeners() {
+    // Date picker listener
+    document.getElementById('weekPicker').addEventListener('change', function() {
+        if (this.value) {
+            jumpToWeek(this.value);
+        }
+    });
+
     // Holiday and day-off checkbox listeners
     document.getElementById('shiftIsHoliday').addEventListener('change', function() {
         if (this.checked) {
