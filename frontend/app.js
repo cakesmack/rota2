@@ -86,6 +86,27 @@ async function loadWeekRota() {
     }
 }
 
+// Calculate total hours for a staff member for the week
+function calculateWeeklyHours(staffId) {
+    const staffShifts = currentShifts.filter(shift => shift.staff_id === staffId);
+    let totalMinutes = 0;
+
+    staffShifts.forEach(shift => {
+        const [startHour, startMinute] = shift.start_time.split(':').map(Number);
+        const [endHour, endMinute] = shift.end_time.split(':').map(Number);
+
+        const startTotalMinutes = startHour * 60 + startMinute;
+        const endTotalMinutes = endHour * 60 + endMinute;
+
+        totalMinutes += endTotalMinutes - startTotalMinutes;
+    });
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+}
+
 // Render rota table
 function renderRotaTable() {
     const tbody = document.getElementById('rotaBody');
@@ -107,13 +128,19 @@ function renderRotaTable() {
         const row = document.createElement('tr');
         row.className = 'border-b border-gray-200 hover:bg-gray-50 transition duration-150';
 
+        // Calculate weekly hours
+        const weeklyHours = calculateWeeklyHours(staff.id);
+
         // Staff name cell
         const nameCell = document.createElement('td');
-        nameCell.className = 'py-4 px-6 font-semibold text-gray-800 bg-gray-50';
+        nameCell.className = 'py-2 px-6 font-semibold text-gray-800 bg-gray-50';
         nameCell.innerHTML = `
             <div>
                 <div class="text-lg">${staff.name}</div>
                 ${staff.role ? `<div class="text-sm text-gray-500">${staff.role}</div>` : ''}
+                <div class="text-sm font-bold text-blue-600 mt-1">
+                    <i class="fas fa-clock mr-1"></i>${weeklyHours}
+                </div>
             </div>
         `;
         row.appendChild(nameCell);
@@ -125,7 +152,7 @@ function renderRotaTable() {
             const dateStr = formatDate(cellDate);
 
             const dayCell = document.createElement('td');
-            dayCell.className = 'py-4 px-4 text-center border-l border-gray-200';
+            dayCell.className = 'py-2 px-2 text-center border-l border-gray-200 align-top';
 
             // Find shifts for this staff member on this day
             const dayShifts = currentShifts.filter(shift =>
@@ -134,10 +161,12 @@ function renderRotaTable() {
 
             if (dayShifts.length > 0) {
                 dayCell.className += ' shift-cell has-shift';
-                dayCell.innerHTML = dayShifts.map(shift => createShiftBadge(shift)).join('');
+                const shiftsHtml = dayShifts.map(shift => createShiftBadge(shift)).join('');
+                const addButton = `<button onclick="openShiftModal(staffMembers.find(s => s.id === ${staff.id}), '${dateStr}')" class="add-shift-btn" title="Add split shift"><i class="fas fa-plus"></i></button>`;
+                dayCell.innerHTML = shiftsHtml + addButton;
             } else {
                 dayCell.className += ' shift-cell empty-shift-cell';
-                dayCell.onclick = () => openShiftModal(staff, dateStr);
+                dayCell.innerHTML = '';  // No hover text
             }
 
             row.appendChild(dayCell);

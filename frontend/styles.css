@@ -48,7 +48,7 @@ body {
 
 /* Rota table cell styles */
 .shift-cell {
-    min-height: 100px;
+    min-height: 60px;
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
@@ -56,23 +56,27 @@ body {
 
 .shift-cell:hover {
     background-color: #f3f4f6;
-    transform: scale(1.02);
 }
 
 .shift-cell.has-shift {
     cursor: default;
 }
 
+.shift-cell.has-shift:hover {
+    background-color: transparent;
+}
+
 .shift-badge {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 8px;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
     cursor: pointer;
     position: relative;
+    display: inline-block;
 }
 
 .shift-badge:hover {
@@ -119,13 +123,29 @@ body {
     justify-content: center;
     color: #9ca3af;
     font-size: 0.875rem;
-    min-height: 80px;
+    min-height: 60px;
 }
 
-.empty-shift-cell:hover::after {
-    content: "+ Add Shift";
-    color: #3b82f6;
-    font-weight: 600;
+/* Add shift button for split shifts */
+.add-shift-btn {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all 0.2s ease;
+}
+
+.add-shift-btn:hover {
+    background-color: #2563eb;
+    transform: scale(1.1);
 }
 
 /* Staff card styles */
