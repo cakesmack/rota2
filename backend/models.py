@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Date, Time, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Date, Time, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from .database import Base
 
 
@@ -44,3 +45,20 @@ class Shift(Base):
     notes = Column(String)
 
     staff = relationship("Staff", back_populates="shifts")
+
+
+class HolidayRequest(Base):
+    __tablename__ = "holiday_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    start_date = Column(Date, nullable=False, index=True)
+    end_date = Column(Date, nullable=False, index=True)
+    reason = Column(String)
+    status = Column(String, nullable=False, default="pending")  # "pending", "approved", "denied"
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Manager who reviewed
+    reviewed_at = Column(DateTime, nullable=True)
+
+    staff = relationship("Staff")
+    reviewer = relationship("User", foreign_keys=[reviewed_by])

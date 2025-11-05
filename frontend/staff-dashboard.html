@@ -25,6 +25,9 @@
                         <div class="text-sm text-gray-500">Logged in as</div>
                         <div id="usernameDisplay" class="font-semibold text-gray-800"></div>
                     </div>
+                    <button onclick="openHolidayRequestModal()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                        <i class="fas fa-umbrella-beach mr-2"></i>Request Holiday
+                    </button>
                     <button onclick="Auth.logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition duration-200">
                         <i class="fas fa-sign-out-alt mr-2"></i>Logout
                     </button>
@@ -40,6 +43,9 @@
                 </button>
                 <button id="myShiftsTab" class="flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
                     <i class="fas fa-user-clock mr-2"></i>My Shifts
+                </button>
+                <button id="holidayRequestsTab" class="flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    <i class="fas fa-umbrella-beach mr-2"></i>Holiday Requests
                 </button>
             </div>
         </div>
@@ -117,6 +123,74 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+        <!-- Holiday Requests View -->
+        <div id="holidayRequestsView" class="bg-white rounded-lg shadow-lg p-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+                <i class="fas fa-umbrella-beach mr-2 text-green-600"></i>
+                My Holiday Requests
+            </h2>
+            <div id="holidayRequestsList">
+                <!-- Holiday requests will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Holiday Request Modal -->
+    <div id="holidayRequestModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-umbrella-beach mr-2 text-green-600"></i>
+                    Request Holiday
+                </h3>
+                <button onclick="closeHolidayRequestModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <form id="holidayRequestForm">
+                <div class="mb-4">
+                    <label for="startDate" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Start Date <span class="text-red-500">*</span>
+                    </label>
+                    <input type="date" id="startDate" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+
+                <div class="mb-4">
+                    <label for="endDate" class="block text-sm font-semibold text-gray-700 mb-2">
+                        End Date <span class="text-red-500">*</span>
+                    </label>
+                    <input type="date" id="endDate" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+
+                <div class="mb-6">
+                    <label for="reason" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Reason (Optional)
+                    </label>
+                    <textarea id="reason" rows="3"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="e.g., Family vacation"></textarea>
+                </div>
+
+                <div id="holidayErrorMessage" class="hidden bg-red-100 text-red-700 px-4 py-3 rounded-lg mb-4">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <span id="holidayErrorText"></span>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeHolidayRequestModal()"
+                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        <i class="fas fa-paper-plane mr-2"></i>Submit Request
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

@@ -337,31 +337,40 @@ function switchView(view) {
     // Update tabs
     const fullRotaTab = document.getElementById('fullRotaTab');
     const myShiftsTab = document.getElementById('myShiftsTab');
+    const holidayRequestsTab = document.getElementById('holidayRequestsTab');
     const fullRotaView = document.getElementById('fullRotaView');
     const myShiftsView = document.getElementById('myShiftsView');
+    const holidayRequestsView = document.getElementById('holidayRequestsView');
     const weeklyHoursSummary = document.getElementById('weeklyHoursSummary');
 
+    // Reset all tabs
+    const inactiveClass = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+    const activeClass = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-blue-600 text-blue-600';
+
+    fullRotaTab.className = inactiveClass;
+    myShiftsTab.className = inactiveClass;
+    holidayRequestsTab.className = inactiveClass;
+
+    // Hide all views
+    fullRotaView.classList.add('hidden');
+    myShiftsView.classList.add('hidden');
+    holidayRequestsView.classList.add('hidden');
+    weeklyHoursSummary.classList.add('hidden');
+
     if (view === 'fullRota') {
-        // Style tabs
-        fullRotaTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-blue-600 text-blue-600';
-        myShiftsTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
-
-        // Show/hide views
+        fullRotaTab.className = activeClass;
         fullRotaView.classList.remove('hidden');
-        myShiftsView.classList.add('hidden');
-        weeklyHoursSummary.classList.add('hidden');
-    } else {
-        // Style tabs
-        myShiftsTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-blue-600 text-blue-600';
-        fullRotaTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
-
-        // Show/hide views
+        renderCurrentView();
+    } else if (view === 'myShifts') {
+        myShiftsTab.className = activeClass;
         myShiftsView.classList.remove('hidden');
-        fullRotaView.classList.add('hidden');
         weeklyHoursSummary.classList.remove('hidden');
+        renderCurrentView();
+    } else if (view === 'holidayRequests') {
+        holidayRequestsTab.className = activeClass;
+        holidayRequestsView.classList.remove('hidden');
+        loadHolidayRequests();
     }
-
-    renderCurrentView();
 }
 
 // Setup event listeners
@@ -373,6 +382,10 @@ function setupEventListeners() {
 
     document.getElementById('myShiftsTab').addEventListener('click', () => {
         switchView('myShifts');
+    });
+
+    document.getElementById('holidayRequestsTab').addEventListener('click', () => {
+        switchView('holidayRequests');
     });
 
     // Previous week
@@ -412,6 +425,185 @@ function formatDisplayDate(date) {
     const options = { weekday: 'short', month: 'short', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
 }
+
+// Holiday Request Functions
+
+let holidayRequests = [];
+
+async function loadHolidayRequests() {
+    try {
+        const response = await fetch('/api/holiday-requests/my-requests', {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            holidayRequests = await response.json();
+            renderHolidayRequests();
+        } else {
+            console.error('Failed to load holiday requests');
+        }
+    } catch (error) {
+        console.error('Error loading holiday requests:', error);
+    }
+}
+
+function renderHolidayRequests() {
+    const container = document.getElementById('holidayRequestsList');
+
+    if (holidayRequests.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-umbrella-beach text-6xl mb-4 text-gray-300"></i>
+                <p class="text-lg">No holiday requests yet</p>
+                <p class="text-sm">Click "Request Holiday" to submit your first request</p>
+            </div>
+        `;
+        return;
+    }
+
+    const html = holidayRequests.map(request => {
+        const statusColor = {
+            'pending': 'bg-yellow-100 text-yellow-800',
+            'approved': 'bg-green-100 text-green-800',
+            'denied': 'bg-red-100 text-red-800'
+        }[request.status];
+
+        const statusIcon = {
+            'pending': 'fa-clock',
+            'approved': 'fa-check-circle',
+            'denied': 'fa-times-circle'
+        }[request.status];
+
+        const startDate = new Date(request.start_date).toLocaleDateString();
+        const endDate = new Date(request.end_date).toLocaleDateString();
+        const created = new Date(request.created_at).toLocaleDateString();
+
+        const deleteButton = request.status === 'pending' ? `
+            <button onclick="deleteHolidayRequest(${request.id})"
+                class="text-red-600 hover:text-red-800 transition duration-200"
+                title="Cancel request">
+                <i class="fas fa-trash"></i>
+            </button>
+        ` : '';
+
+        return `
+            <div class="border border-gray-200 rounded-lg p-4 mb-4 hover:shadow-md transition duration-200">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="${statusColor} px-3 py-1 rounded-full text-sm font-semibold">
+                                <i class="fas ${statusIcon} mr-1"></i>${request.status.toUpperCase()}
+                            </span>
+                            <span class="text-gray-500 text-sm">Requested on ${created}</span>
+                        </div>
+                        <div class="text-gray-800">
+                            <i class="fas fa-calendar-alt mr-2 text-blue-500"></i>
+                            <strong>${startDate}</strong> to <strong>${endDate}</strong>
+                        </div>
+                        ${request.reason ? `<div class="text-gray-600 text-sm mt-2"><i class="fas fa-comment mr-2"></i>${request.reason}</div>` : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        ${deleteButton}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+function openHolidayRequestModal() {
+    document.getElementById('holidayRequestModal').classList.remove('hidden');
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('startDate').setAttribute('min', today);
+    document.getElementById('endDate').setAttribute('min', today);
+}
+
+function closeHolidayRequestModal() {
+    document.getElementById('holidayRequestModal').classList.add('hidden');
+    document.getElementById('holidayRequestForm').reset();
+    document.getElementById('holidayErrorMessage').classList.add('hidden');
+}
+
+async function deleteHolidayRequest(requestId) {
+    if (!confirm('Are you sure you want to cancel this holiday request?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/holiday-requests/${requestId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            await loadHolidayRequests();
+        } else {
+            alert('Failed to cancel request');
+        }
+    } catch (error) {
+        console.error('Error deleting holiday request:', error);
+        alert('Failed to cancel request');
+    }
+}
+
+// Holiday request form submission
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('holidayRequestForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const reason = document.getElementById('reason').value;
+
+        const errorDiv = document.getElementById('holidayErrorMessage');
+        const errorText = document.getElementById('holidayErrorText');
+
+        // Validate dates
+        if (new Date(endDate) < new Date(startDate)) {
+            errorText.textContent = 'End date must be after or equal to start date';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        errorDiv.classList.add('hidden');
+
+        try {
+            const response = await fetch('/api/holiday-requests', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Auth.getToken()}`
+                },
+                body: JSON.stringify({
+                    start_date: startDate,
+                    end_date: endDate,
+                    reason: reason || null
+                })
+            });
+
+            if (response.ok) {
+                closeHolidayRequestModal();
+                await loadHolidayRequests();
+                alert('Holiday request submitted successfully!');
+            } else {
+                const error = await response.json();
+                errorText.textContent = error.detail || 'Failed to submit request';
+                errorDiv.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Error submitting holiday request:', error);
+            errorText.textContent = 'Failed to submit request. Please try again.';
+            errorDiv.classList.remove('hidden');
+        }
+    });
+});
 
 // Initialize when page loads
 init();

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import List, Optional
 from . import models, schemas
 
@@ -106,3 +106,108 @@ def get_week_rota(db: Session, week_start: date) -> schemas.WeekRota:
         staff_list=staff_list,
         shifts=shifts
     )
+
+
+# Holiday Request CRUD operations
+def get_holiday_request(db: Session, request_id: int) -> Optional[models.HolidayRequest]:
+    return db.query(models.HolidayRequest).filter(models.HolidayRequest.id == request_id).first()
+
+
+def get_holiday_requests_for_staff(db: Session, staff_id: int) -> List[models.HolidayRequest]:
+    """Get all holiday requests for a specific staff member"""
+    return db.query(models.HolidayRequest).filter(
+        models.HolidayRequest.staff_id == staff_id
+    ).order_by(models.HolidayRequest.created_at.desc()).all()
+
+
+def get_all_holiday_requests(db: Session, status: Optional[str] = None) -> List[models.HolidayRequest]:
+    """Get all holiday requests, optionally filtered by status"""
+    query = db.query(models.HolidayRequest)
+    if status:
+        query = query.filter(models.HolidayRequest.status == status)
+    return query.order_by(models.HolidayRequest.created_at.desc()).all()
+
+
+def get_pending_holiday_requests(db: Session) -> List[models.HolidayRequest]:
+    """Get all pending holiday requests"""
+    return get_all_holiday_requests(db, status="pending")
+
+
+def create_holiday_request(db: Session, holiday_request: schemas.HolidayRequestCreate, staff_id: int) -> models.HolidayRequest:
+    """Create a new holiday request"""
+    db_request = models.HolidayRequest(
+        staff_id=staff_id,
+        **holiday_request.model_dump()
+    )
+    db.add(db_request)
+    db.commit()
+    db.refresh(db_request)
+    return db_request
+
+
+def approve_holiday_request(db: Session, request_id: int, reviewer_id: int) -> Optional[models.HolidayRequest]:
+    """Approve a holiday request and create holiday shifts"""
+    db_request = get_holiday_request(db, request_id)
+    if not db_request or db_request.status != "pending":
+        return None
+
+    # Update request status
+    db_request.status = "approved"
+    db_request.reviewed_by = reviewer_id
+    db_request.reviewed_at = datetime.utcnow()
+
+    # Create holiday shifts for each day in the range
+    current_date = db_request.start_date
+    while current_date <= db_request.end_date:
+        # Check if shift already exists for this date
+        existing_shift = db.query(models.Shift).filter(
+            and_(
+                models.Shift.staff_id == db_request.staff_id,
+                models.Shift.date == current_date
+            )
+        ).first()
+
+        if not existing_shift:
+            # Create new holiday shift
+            holiday_shift = models.Shift(
+                staff_id=db_request.staff_id,
+                date=current_date,
+                start_time=None,
+                end_time=None,
+                shift_type=None,
+                is_holiday=True,
+                is_day_off=False,
+                notes=f"Approved holiday request #{db_request.id}"
+            )
+            db.add(holiday_shift)
+
+        current_date += timedelta(days=1)
+
+    db.commit()
+    db.refresh(db_request)
+    return db_request
+
+
+def deny_holiday_request(db: Session, request_id: int, reviewer_id: int) -> Optional[models.HolidayRequest]:
+    """Deny a holiday request"""
+    db_request = get_holiday_request(db, request_id)
+    if not db_request or db_request.status != "pending":
+        return None
+
+    db_request.status = "denied"
+    db_request.reviewed_by = reviewer_id
+    db_request.reviewed_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(db_request)
+    return db_request
+
+
+def delete_holiday_request(db: Session, request_id: int, staff_id: int) -> bool:
+    """Delete a holiday request (only if pending and belongs to staff)"""
+    db_request = get_holiday_request(db, request_id)
+    if db_request and db_request.staff_id == staff_id and db_request.status == "pending":
+        db.delete(db_request)
+        db.commit()
+        return True
+    return False

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from datetime import date, time
+from datetime import date, time, datetime
 from typing import Optional, List
 
 
@@ -106,3 +106,31 @@ class WeekRota(BaseModel):
     week_end: date
     staff_list: List[Staff]
     shifts: List[Shift]
+
+
+# Holiday Request Schemas
+class HolidayRequestBase(BaseModel):
+    start_date: date
+    end_date: date
+    reason: Optional[str] = None
+
+
+class HolidayRequestCreate(HolidayRequestBase):
+    pass
+
+
+class HolidayRequestUpdate(BaseModel):
+    status: Optional[str] = None  # "approved" or "denied"
+
+
+class HolidayRequest(HolidayRequestBase):
+    id: int
+    staff_id: int
+    status: str
+    created_at: datetime
+    reviewed_by: Optional[int] = None
+    reviewed_at: Optional[datetime] = None
+    staff: Staff
+
+    class Config:
+        from_attributes = True

@@ -755,3 +755,181 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Holiday Request Management Functions
+
+async function openHolidayRequestsModal() {
+    document.getElementById('holidayRequestsModal').classList.remove('hidden');
+    await loadHolidayRequests();
+}
+
+function closeHolidayRequestsModal() {
+    document.getElementById('holidayRequestsModal').classList.add('hidden');
+}
+
+async function loadHolidayRequests() {
+    try {
+        const response = await fetch('/api/holiday-requests/pending', {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            const requests = await response.json();
+            renderHolidayRequests(requests);
+            updatePendingBadge(requests.length);
+        } else {
+            console.error('Failed to load holiday requests');
+        }
+    } catch (error) {
+        console.error('Error loading holiday requests:', error);
+    }
+}
+
+function updatePendingBadge(count) {
+    const badge = document.getElementById('pendingRequestsBadge');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function renderHolidayRequests(requests) {
+    const container = document.getElementById('holidayRequestsContent');
+
+    if (requests.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-inbox text-6xl mb-4 text-gray-300"></i>
+                <p class="text-lg">No pending holiday requests</p>
+            </div>
+        `;
+        return;
+    }
+
+    const html = requests.map(request => {
+        const startDate = new Date(request.start_date).toLocaleDateString();
+        const endDate = new Date(request.end_date).toLocaleDateString();
+        const created = new Date(request.created_at).toLocaleDateString();
+        const days = Math.ceil((new Date(request.end_date) - new Date(request.start_date)) / (1000 * 60 * 60 * 24)) + 1;
+
+        return `
+            <div class="border border-gray-200 rounded-lg p-6 mb-4 hover:shadow-lg transition duration-200">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h4 class="text-xl font-bold text-gray-800">
+                                <i class="fas fa-user mr-2 text-blue-500"></i>${request.staff.name}
+                            </h4>
+                            <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
+                                <i class="fas fa-clock mr-1"></i>PENDING
+                            </span>
+                        </div>
+                        <div class="text-gray-600 mb-2">
+                            <i class="fas fa-calendar-alt mr-2"></i>
+                            <strong>${startDate}</strong> to <strong>${endDate}</strong>
+                            <span class="ml-2 text-sm">(${days} ${days === 1 ? 'day' : 'days'})</span>
+                        </div>
+                        ${request.reason ? `
+                            <div class="text-gray-600 text-sm mt-2">
+                                <i class="fas fa-comment mr-2"></i>
+                                <em>"${request.reason}"</em>
+                            </div>
+                        ` : ''}
+                        <div class="text-gray-500 text-xs mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>Requested on ${created}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4 border-t border-gray-200">
+                    <button onclick="approveHolidayRequest(${request.id})"
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        <i class="fas fa-check mr-2"></i>Approve
+                    </button>
+                    <button onclick="denyHolidayRequest(${request.id})"
+                        class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        <i class="fas fa-times mr-2"></i>Deny
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+async function approveHolidayRequest(requestId) {
+    if (!confirm('Approve this holiday request?\n\nHoliday shifts will be automatically created for the requested dates.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/holiday-requests/${requestId}/approve`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            showToast('Holiday request approved! Shifts created.', 'success');
+            await loadHolidayRequests();
+            await loadWeekRota(); // Refresh the rota
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to approve request', 'error');
+        }
+    } catch (error) {
+        console.error('Error approving holiday request:', error);
+        showToast('Failed to approve request', 'error');
+    }
+}
+
+async function denyHolidayRequest(requestId) {
+    if (!confirm('Deny this holiday request?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/holiday-requests/${requestId}/deny`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            showToast('Holiday request denied', 'success');
+            await loadHolidayRequests();
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to deny request', 'error');
+        }
+    } catch (error) {
+        console.error('Error denying holiday request:', error);
+        showToast('Failed to deny request', 'error');
+    }
+}
+
+// Load pending requests badge on page load
+window.addEventListener('DOMContentLoaded', async () => {
+    if (Auth.isManager()) {
+        try {
+            const response = await fetch('/api/holiday-requests/pending', {
+                headers: {
+                    'Authorization': `Bearer ${Auth.getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                const requests = await response.json();
+                updatePendingBadge(requests.length);
+            }
+        } catch (error) {
+            console.error('Error loading pending requests count:', error);
+        }
+    }
+});
