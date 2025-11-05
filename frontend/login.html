@@ -118,8 +118,12 @@
                     localStorage.setItem('user_role', data.role);
                     localStorage.setItem('username', data.username);
 
-                    // Redirect to main app
-                    window.location.href = '/';
+                    // Role-based redirect
+                    if (data.role === 'manager') {
+                        window.location.href = '/';
+                    } else {
+                        window.location.href = '/static/staff-dashboard.html';
+                    }
                 } else {
                     const error = await response.json();
                     errorText.textContent = error.detail || 'Login failed. Please check your credentials.';

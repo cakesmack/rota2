@@ -97,3 +97,31 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def get_current_user_info(current_user: models.User = Depends(get_current_user)):
     """Get current user information"""
     return current_user
+
+
+@router.get("/me/staff")
+def get_current_user_staff(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get the staff record linked to the current user"""
+    if not current_user.staff_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No staff record linked to this user account"
+        )
+
+    staff = db.query(models.Staff).filter(models.Staff.id == current_user.staff_id).first()
+    if not staff:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Staff record not found"
+        )
+
+    return {
+        "id": staff.id,
+        "name": staff.name,
+        "email": staff.email,
+        "phone": staff.phone,
+        "role": staff.role
+    }

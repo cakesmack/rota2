@@ -13,6 +13,11 @@
     <script>
         // Require authentication before loading page
         Auth.requireAuth();
+
+        // Redirect staff users to their dashboard
+        if (Auth.getRole() === 'staff') {
+            window.location.href = '/static/staff-dashboard.html';
+        }
     </script>
 
     <div class="container mx-auto px-4 py-8">

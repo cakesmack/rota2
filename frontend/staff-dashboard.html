@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Schedule - Rota Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                        <i class="fas fa-calendar-alt text-blue-600 mr-2"></i>
+                        My Schedule
+                    </h1>
+                    <p class="text-gray-600">Welcome, <span id="staffName" class="font-semibold"></span></p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <div class="text-sm text-gray-500">Logged in as</div>
+                        <div id="usernameDisplay" class="font-semibold text-gray-800"></div>
+                    </div>
+                    <button onclick="Auth.logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week Navigation -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <button id="prevWeek" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                    <i class="fas fa-chevron-left mr-2"></i>Previous Week
+                </button>
+
+                <div class="flex items-center gap-4">
+                    <div class="text-center">
+                        <div class="text-sm text-gray-500 mb-1">Week of</div>
+                        <h2 id="weekDisplay" class="text-xl font-bold text-gray-800"></h2>
+                    </div>
+                    <input type="date" id="datePicker" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <button id="nextWeek" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                    Next Week<i class="fas fa-chevron-right ml-2"></i>
+                </button>
+            </div>
+
+            <!-- Weekly Hours Summary -->
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <div class="flex justify-center items-center gap-2">
+                    <i class="fas fa-clock text-blue-600"></i>
+                    <span class="text-gray-700">Total Hours This Week:</span>
+                    <span id="weeklyHours" class="text-2xl font-bold text-blue-600">0.0</span>
+                    <span class="text-gray-500">hours</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule Grid -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+                            <th class="px-4 py-3 text-left rounded-tl-lg">Day</th>
+                            <th class="px-4 py-3 text-left">Date</th>
+                            <th class="px-4 py-3 text-left">Shifts</th>
+                            <th class="px-4 py-3 text-left rounded-tr-lg">Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleBody">
+                        <!-- Schedule rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/auth.js"></script>
+    <script src="/static/staff-dashboard.js"></script>
+</body>
+</html>
