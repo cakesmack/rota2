@@ -7,9 +7,12 @@ let currentWeekStart = null;
 let currentStaffId = null;
 let currentStaffInfo = null;
 let currentShifts = [];
+let allStaff = [];
+let currentView = 'fullRota'; // 'fullRota' or 'myShifts'
 
 // Days of the week
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // Initialize the dashboard
 async function init() {
@@ -27,8 +30,8 @@ async function init() {
     monday.setDate(today.getDate() - daysToMonday);
     currentWeekStart = monday;
 
-    // Load the schedule
-    await loadSchedule();
+    // Load data
+    await loadAllData();
 
     // Setup event listeners
     setupEventListeners();
@@ -59,48 +62,165 @@ async function loadStaffInfo() {
     }
 }
 
-// Load schedule for the current week
-async function loadSchedule() {
-    if (!currentStaffId) return;
-
+// Load all data for the current week
+async function loadAllData() {
     try {
-        // Format dates
-        const weekEnd = new Date(currentWeekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-
-        const startStr = formatDate(currentWeekStart);
-        const endStr = formatDate(weekEnd);
-
         // Update week display
         updateWeekDisplay();
 
-        // Fetch shifts for this staff member
-        const response = await fetch(
-            `/api/staff/${currentStaffId}/shifts?start_date=${startStr}&end_date=${endStr}`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                }
-            }
-        );
+        // Load all staff
+        await loadAllStaff();
 
-        if (response.ok) {
-            currentShifts = await response.json();
-            renderSchedule();
-            calculateWeeklyHours();
-        } else {
-            throw new Error('Failed to load schedule');
-        }
+        // Load all shifts for the week
+        await loadAllShifts();
+
+        // Render the current view
+        renderCurrentView();
     } catch (error) {
-        console.error('Error loading schedule:', error);
-        alert('Failed to load your schedule. Please try again.');
+        console.error('Error loading data:', error);
+        alert('Failed to load schedule. Please try again.');
     }
 }
 
-// Render the schedule grid
-function renderSchedule() {
+// Load all staff members
+async function loadAllStaff() {
+    const response = await fetch('/api/staff', {
+        headers: {
+            'Authorization': `Bearer ${Auth.getToken()}`
+        }
+    });
+
+    if (response.ok) {
+        allStaff = await response.json();
+    } else {
+        throw new Error('Failed to load staff list');
+    }
+}
+
+// Load all shifts for the current week
+async function loadAllShifts() {
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    const startStr = formatDate(currentWeekStart);
+    const endStr = formatDate(weekEnd);
+
+    const response = await fetch(
+        `/api/shifts?start_date=${startStr}&end_date=${endStr}`,
+        {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        }
+    );
+
+    if (response.ok) {
+        currentShifts = await response.json();
+    } else {
+        throw new Error('Failed to load shifts');
+    }
+}
+
+// Render the current view based on selected tab
+function renderCurrentView() {
+    if (currentView === 'fullRota') {
+        renderFullRota();
+    } else {
+        renderMyShifts();
+    }
+}
+
+// Render the full rota view (all staff)
+function renderFullRota() {
+    const tbody = document.getElementById('rotaBody');
+    tbody.innerHTML = '';
+
+    // Update header dates
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(currentWeekStart);
+        date.setDate(date.getDate() + i);
+        document.getElementById(`day${i}`).innerHTML = `
+            <div class="font-bold">${SHORT_DAYS[i]}</div>
+            <div class="text-xs font-normal">${date.getDate()}/${date.getMonth() + 1}</div>
+        `;
+    }
+
+    // Render each staff member's row
+    allStaff.forEach(staff => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition duration-200';
+
+        // Staff name cell with weekly hours
+        const nameCell = document.createElement('td');
+        nameCell.className = 'border border-gray-300 px-4 py-3 font-semibold bg-gray-50 sticky left-0';
+
+        const weeklyHours = calculateStaffWeeklyHours(staff.id);
+        const isCurrentUser = staff.id === currentStaffId;
+
+        nameCell.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span class="${isCurrentUser ? 'text-blue-600' : 'text-gray-800'}">
+                    ${isCurrentUser ? '<i class="fas fa-user-circle mr-2"></i>' : ''}${staff.name}
+                </span>
+                <span class="text-sm text-gray-500">${weeklyHours.toFixed(1)}h</span>
+            </div>
+        `;
+        tr.appendChild(nameCell);
+
+        // Day cells
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(currentWeekStart);
+            date.setDate(date.getDate() + i);
+            const dateStr = formatDate(date);
+
+            const dayCell = document.createElement('td');
+            dayCell.className = 'border border-gray-300 px-2 py-2 align-top';
+
+            const dayShifts = currentShifts.filter(
+                shift => shift.staff_id === staff.id && shift.date === dateStr
+            );
+
+            if (dayShifts.length > 0) {
+                dayCell.innerHTML = dayShifts.map(shift => renderShiftBadge(shift)).join('');
+            }
+
+            tr.appendChild(dayCell);
+        }
+
+        tbody.appendChild(tr);
+    });
+}
+
+// Render shift badge for full rota view
+function renderShiftBadge(shift) {
+    if (shift.is_holiday) {
+        return `<div class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs mb-1">
+            <i class="fas fa-umbrella-beach"></i> Holiday
+        </div>`;
+    } else if (shift.is_day_off) {
+        return `<div class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs mb-1">
+            <i class="fas fa-bed"></i> Day Off
+        </div>`;
+    } else {
+        const duration = calculateShiftDuration(shift.start_time, shift.end_time);
+        const isLong = duration > 8;
+        const badgeClass = isLong ? 'bg-orange-100 text-orange-800 long-shift' : 'bg-blue-100 text-blue-800';
+        const warningIcon = isLong ? '<i class="fas fa-exclamation-triangle text-xs long-shift-warning"></i> ' : '';
+        const roleText = shift.shift_type ? `<div class="text-xs font-semibold">${shift.shift_type}</div>` : '';
+
+        return `<div class="${badgeClass} px-2 py-1 rounded text-xs mb-1">
+            ${warningIcon}${shift.start_time} - ${shift.end_time}
+            ${roleText}
+        </div>`;
+    }
+}
+
+// Render the personalized shifts view
+function renderMyShifts() {
     const tbody = document.getElementById('scheduleBody');
     tbody.innerHTML = '';
+
+    const myShifts = currentShifts.filter(shift => shift.staff_id === currentStaffId);
 
     for (let i = 0; i < 7; i++) {
         const date = new Date(currentWeekStart);
@@ -108,7 +228,7 @@ function renderSchedule() {
         const dateStr = formatDate(date);
 
         // Get shifts for this day
-        const dayShifts = currentShifts.filter(shift => shift.date === dateStr);
+        const dayShifts = myShifts.filter(shift => shift.date === dateStr);
 
         const tr = document.createElement('tr');
         tr.className = 'border-b border-gray-200 hover:bg-gray-50 transition duration-200';
@@ -164,19 +284,29 @@ function renderSchedule() {
 
         tbody.appendChild(tr);
     }
+
+    // Update weekly hours
+    calculateWeeklyHours();
 }
 
-// Calculate total weekly hours
-function calculateWeeklyHours() {
+// Calculate total weekly hours for a staff member
+function calculateStaffWeeklyHours(staffId) {
     let totalHours = 0;
+    const staffShifts = currentShifts.filter(shift => shift.staff_id === staffId);
 
-    currentShifts.forEach(shift => {
+    staffShifts.forEach(shift => {
         if (shift.is_holiday || shift.is_day_off || !shift.start_time || !shift.end_time) {
             return;
         }
         totalHours += calculateShiftDuration(shift.start_time, shift.end_time);
     });
 
+    return totalHours;
+}
+
+// Calculate total weekly hours for current user
+function calculateWeeklyHours() {
+    const totalHours = calculateStaffWeeklyHours(currentStaffId);
     document.getElementById('weeklyHours').textContent = totalHours.toFixed(1);
 }
 
@@ -200,18 +330,61 @@ function updateWeekDisplay() {
     document.getElementById('datePicker').valueAsDate = currentWeekStart;
 }
 
+// Switch view
+function switchView(view) {
+    currentView = view;
+
+    // Update tabs
+    const fullRotaTab = document.getElementById('fullRotaTab');
+    const myShiftsTab = document.getElementById('myShiftsTab');
+    const fullRotaView = document.getElementById('fullRotaView');
+    const myShiftsView = document.getElementById('myShiftsView');
+    const weeklyHoursSummary = document.getElementById('weeklyHoursSummary');
+
+    if (view === 'fullRota') {
+        // Style tabs
+        fullRotaTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-blue-600 text-blue-600';
+        myShiftsTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+
+        // Show/hide views
+        fullRotaView.classList.remove('hidden');
+        myShiftsView.classList.add('hidden');
+        weeklyHoursSummary.classList.add('hidden');
+    } else {
+        // Style tabs
+        myShiftsTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-blue-600 text-blue-600';
+        fullRotaTab.className = 'flex-1 px-6 py-4 text-center font-semibold transition duration-200 border-b-4 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+
+        // Show/hide views
+        myShiftsView.classList.remove('hidden');
+        fullRotaView.classList.add('hidden');
+        weeklyHoursSummary.classList.remove('hidden');
+    }
+
+    renderCurrentView();
+}
+
 // Setup event listeners
 function setupEventListeners() {
+    // Tab switching
+    document.getElementById('fullRotaTab').addEventListener('click', () => {
+        switchView('fullRota');
+    });
+
+    document.getElementById('myShiftsTab').addEventListener('click', () => {
+        switchView('myShifts');
+    });
+
     // Previous week
     document.getElementById('prevWeek').addEventListener('click', () => {
         currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-        loadSchedule();
+        loadAllData();
     });
 
     // Next week
     document.getElementById('nextWeek').addEventListener('click', () => {
         currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-        loadSchedule();
+        loadAllData();
     });
 
     // Date picker
@@ -222,7 +395,7 @@ function setupEventListeners() {
         const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
         selectedDate.setDate(selectedDate.getDate() - daysToMonday);
         currentWeekStart = selectedDate;
-        loadSchedule();
+        loadAllData();
     });
 }
 
