@@ -3,6 +3,20 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String, nullable=False, default="staff")  # "manager" or "staff"
+    is_active = Column(Boolean, default=True)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=True)  # Link to staff record
+
+    staff = relationship("Staff", back_populates="user", uselist=False)
+
+
 class Staff(Base):
     __tablename__ = "staff"
 
@@ -13,6 +27,7 @@ class Staff(Base):
     role = Column(String)  # e.g., "Manager", "Waiter", "Chef", etc.
 
     shifts = relationship("Shift", back_populates="staff")
+    user = relationship("User", back_populates="staff", uselist=False)
 
 
 class Shift(Base):

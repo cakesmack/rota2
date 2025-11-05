@@ -3,6 +3,43 @@ from datetime import date, time
 from typing import Optional, List
 
 
+# Authentication Schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    role: str
+    username: str
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+
+class UserBase(BaseModel):
+    username: str
+    email: EmailStr
+    role: str = "staff"
+
+
+class UserCreate(UserBase):
+    password: str
+    staff_id: Optional[int] = None
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class User(UserBase):
+    id: int
+    is_active: bool
+    staff_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
 # Staff Schemas
 class StaffBase(BaseModel):
     name: str
