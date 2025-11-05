@@ -7,8 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/auth.js"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
+    <script>
+        // Require authentication before loading page
+        Auth.requireAuth();
+    </script>
+
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <div class="mb-8">
@@ -17,9 +23,23 @@
                     <i class="fas fa-calendar-alt text-blue-600"></i>
                     Rota Management
                 </h1>
-                <button onclick="openStaffModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105">
-                    <i class="fas fa-user-plus mr-2"></i>Add Staff
-                </button>
+                <div class="flex items-center gap-4">
+                    <div class="text-right" id="userInfo">
+                        <p class="text-sm text-gray-600">
+                            <i class="fas fa-user-circle mr-1"></i>
+                            <span id="usernameDisplay"></span>
+                        </p>
+                        <p class="text-xs text-gray-500">
+                            <span id="roleDisplay"></span>
+                        </p>
+                    </div>
+                    <button onclick="openStaffModal()" id="addStaffBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-200 transform hover:scale-105">
+                        <i class="fas fa-user-plus mr-2"></i>Add Staff
+                    </button>
+                    <button onclick="Auth.logout()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-200">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
             </div>
 
             <!-- Week Navigation -->

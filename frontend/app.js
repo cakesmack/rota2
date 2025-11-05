@@ -5,10 +5,39 @@ let currentShifts = [];
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
+    // Display user info
+    displayUserInfo();
+
+    // Initialize app
     initializeWeek();
     loadStaff();
     setupEventListeners();
+
+    // Setup role-based UI
+    setupRoleBasedUI();
 });
+
+// Display user info in header
+function displayUserInfo() {
+    document.getElementById('usernameDisplay').textContent = Auth.getUsername();
+    const role = Auth.getRole();
+    const roleDisplay = role === 'manager' ? 'Manager' : 'Staff Member';
+    document.getElementById('roleDisplay').textContent = roleDisplay;
+}
+
+// Setup role-based UI visibility
+function setupRoleBasedUI() {
+    const isManager = Auth.isManager();
+
+    // Only managers can add/edit/delete staff and shifts
+    if (!isManager) {
+        // Hide manager-only features
+        document.getElementById('addStaffBtn').style.display = 'none';
+
+        // TODO: Hide staff management section, disable shift creation
+        // For now, we'll allow viewing but add restrictions later
+    }
+}
 
 // Initialize to current week (Monday)
 function initializeWeek() {
@@ -93,7 +122,11 @@ async function loadWeekRota() {
     try {
         updateWeekDisplay();
         const weekStartStr = formatDate(currentWeekStart);
-        const response = await fetch(`/api/rota/week?week_start=${weekStartStr}`);
+        const response = await fetch(`/api/rota/week?week_start=${weekStartStr}`, {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
         const data = await response.json();
 
         staffMembers = data.staff_list;
@@ -261,7 +294,11 @@ function formatTime(timeStr) {
 // Load all staff
 async function loadStaff() {
     try {
-        const response = await fetch('/api/staff');
+        const response = await fetch('/api/staff', {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
         staffMembers = await response.json();
         renderStaffList();
     } catch (error) {
@@ -346,7 +383,10 @@ async function deleteStaffMember(staffId) {
 
     try {
         const response = await fetch(`/api/staff/${staffId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
         });
 
         if (response.ok) {
@@ -422,7 +462,10 @@ async function deleteShift(shiftId, event) {
 
     try {
         const response = await fetch(`/api/shifts/${shiftId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
         });
 
         if (response.ok) {
@@ -507,14 +550,20 @@ function setupEventListeners() {
                 // Update existing staff
                 response = await fetch(`/api/staff/${staffId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Auth.getToken()}`
+                    },
                     body: JSON.stringify(staffData)
                 });
             } else {
                 // Create new staff
                 response = await fetch('/api/staff', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Auth.getToken()}`
+                    },
                     body: JSON.stringify(staffData)
                 });
             }
@@ -620,14 +669,20 @@ function setupEventListeners() {
                 // Update existing shift
                 response = await fetch(`/api/shifts/${shiftId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Auth.getToken()}`
+                    },
                     body: JSON.stringify(shiftData)
                 });
             } else {
                 // Create new shift
                 response = await fetch('/api/shifts', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Auth.getToken()}`
+                    },
                     body: JSON.stringify(shiftData)
                 });
             }
