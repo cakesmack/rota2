@@ -211,3 +211,131 @@ def delete_holiday_request(db: Session, request_id: int, staff_id: int) -> bool:
         db.commit()
         return True
     return False
+
+
+# Shift Swap CRUD operations
+def get_shift_swap(db: Session, swap_id: int) -> Optional[models.ShiftSwap]:
+    return db.query(models.ShiftSwap).filter(models.ShiftSwap.id == swap_id).first()
+
+
+def get_shift_swaps_for_staff(db: Session, staff_id: int) -> List[models.ShiftSwap]:
+    """Get all shift swaps involving a specific staff member"""
+    return db.query(models.ShiftSwap).filter(
+        (models.ShiftSwap.initiator_staff_id == staff_id) |
+        (models.ShiftSwap.recipient_staff_id == staff_id)
+    ).order_by(models.ShiftSwap.created_at.desc()).all()
+
+
+def get_pending_shift_swaps_for_manager(db: Session) -> List[models.ShiftSwap]:
+    """Get all shift swaps awaiting manager approval (accepted by both parties)"""
+    return db.query(models.ShiftSwap).filter(
+        models.ShiftSwap.status == "accepted"
+    ).order_by(models.ShiftSwap.created_at.desc()).all()
+
+
+def create_shift_swap(db: Session, shift_swap: schemas.ShiftSwapCreate, initiator_staff_id: int) -> models.ShiftSwap:
+    """Create a new shift swap proposal"""
+    # Verify initiator owns the shift
+    initiator_shift = get_shift(db, shift_swap.initiator_shift_id)
+    if not initiator_shift or initiator_shift.staff_id != initiator_staff_id:
+        return None
+
+    # Verify recipient shift belongs to recipient (if specified)
+    if shift_swap.recipient_shift_id:
+        recipient_shift = get_shift(db, shift_swap.recipient_shift_id)
+        if not recipient_shift or recipient_shift.staff_id != shift_swap.recipient_staff_id:
+            return None
+
+    db_swap = models.ShiftSwap(
+        initiator_staff_id=initiator_staff_id,
+        **shift_swap.model_dump()
+    )
+    db.add(db_swap)
+    db.commit()
+    db.refresh(db_swap)
+    return db_swap
+
+
+def accept_shift_swap(db: Session, swap_id: int, staff_id: int) -> Optional[models.ShiftSwap]:
+    """Recipient accepts the swap proposal"""
+    db_swap = get_shift_swap(db, swap_id)
+    if not db_swap or db_swap.recipient_staff_id != staff_id or db_swap.status != "proposed":
+        return None
+
+    db_swap.status = "accepted"
+    db_swap.accepted_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_swap)
+    return db_swap
+
+
+def decline_shift_swap(db: Session, swap_id: int, staff_id: int) -> Optional[models.ShiftSwap]:
+    """Recipient declines the swap proposal"""
+    db_swap = get_shift_swap(db, swap_id)
+    if not db_swap or db_swap.recipient_staff_id != staff_id or db_swap.status != "proposed":
+        return None
+
+    db_swap.status = "denied"
+    db.commit()
+    db.refresh(db_swap)
+    return db_swap
+
+
+def cancel_shift_swap(db: Session, swap_id: int, staff_id: int) -> bool:
+    """Initiator cancels their own swap proposal"""
+    db_swap = get_shift_swap(db, swap_id)
+    if db_swap and db_swap.initiator_staff_id == staff_id and db_swap.status in ["proposed", "accepted"]:
+        db.delete(db_swap)
+        db.commit()
+        return True
+    return False
+
+
+def approve_shift_swap(db: Session, swap_id: int, reviewer_id: int) -> Optional[models.ShiftSwap]:
+    """Manager approves the shift swap and swaps the staff assignments"""
+    db_swap = get_shift_swap(db, swap_id)
+    if not db_swap or db_swap.status != "accepted":
+        return None
+
+    # Get the shifts
+    initiator_shift = get_shift(db, db_swap.initiator_shift_id)
+    recipient_shift = None
+    if db_swap.recipient_shift_id:
+        recipient_shift = get_shift(db, db_swap.recipient_shift_id)
+
+    if not initiator_shift:
+        return None
+
+    # Swap the staff assignments
+    if recipient_shift:
+        # True swap: exchange staff_id between two shifts
+        temp_staff_id = initiator_shift.staff_id
+        initiator_shift.staff_id = recipient_shift.staff_id
+        recipient_shift.staff_id = temp_staff_id
+    else:
+        # Give-away: assign initiator's shift to recipient
+        initiator_shift.staff_id = db_swap.recipient_staff_id
+
+    # Update swap status
+    db_swap.status = "approved"
+    db_swap.reviewed_by = reviewer_id
+    db_swap.reviewed_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(db_swap)
+    return db_swap
+
+
+def deny_shift_swap(db: Session, swap_id: int, reviewer_id: int) -> Optional[models.ShiftSwap]:
+    """Manager denies the shift swap"""
+    db_swap = get_shift_swap(db, swap_id)
+    if not db_swap or db_swap.status != "accepted":
+        return None
+
+    db_swap.status = "denied"
+    db_swap.reviewed_by = reviewer_id
+    db_swap.reviewed_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(db_swap)
+    return db_swap

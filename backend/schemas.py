@@ -134,3 +134,32 @@ class HolidayRequest(HolidayRequestBase):
 
     class Config:
         from_attributes = True
+
+
+# Shift Swap Schemas
+class ShiftSwapBase(BaseModel):
+    initiator_shift_id: int
+    recipient_staff_id: int
+    recipient_shift_id: Optional[int] = None
+    message: Optional[str] = None
+
+
+class ShiftSwapCreate(ShiftSwapBase):
+    pass
+
+
+class ShiftSwap(ShiftSwapBase):
+    id: int
+    initiator_staff_id: int
+    status: str
+    created_at: datetime
+    accepted_at: Optional[datetime] = None
+    reviewed_by: Optional[int] = None
+    reviewed_at: Optional[datetime] = None
+    initiator_shift: Shift
+    initiator_staff: Staff
+    recipient_staff: Staff
+    recipient_shift: Optional[Shift] = None
+
+    class Config:
+        from_attributes = True

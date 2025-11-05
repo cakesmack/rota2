@@ -9,7 +9,7 @@ import os
 
 from . import models, schemas, crud
 from .database import engine, get_db
-from .routers import auth, holiday_requests
+from .routers import auth, holiday_requests, shift_swaps
 from .auth import get_current_user, get_current_active_manager
 
 # Create database tables
@@ -29,6 +29,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(holiday_requests.router)
+app.include_router(shift_swaps.router)
 
 # Serve frontend files
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
