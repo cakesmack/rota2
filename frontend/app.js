@@ -206,6 +206,7 @@ function renderRotaTable() {
 function createShiftBadge(shift) {
     let badgeClass = 'shift-badge';
     let badgeContent = '';
+    let warningIndicator = '';
 
     // Determine badge style based on status
     if (shift.is_holiday) {
@@ -215,7 +216,14 @@ function createShiftBadge(shift) {
         badgeClass += ' day-off-badge';
         badgeContent = `<span class="shift-status"><i class="fas fa-coffee mr-1"></i>Day Off</span>`;
     } else {
-        badgeContent = `<span class="shift-time">${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}</span>`;
+        // Calculate shift duration and add warning for long shifts
+        const duration = calculateShiftDuration(shift.start_time, shift.end_time);
+        if (duration > 8) {
+            badgeClass += ' long-shift';
+            warningIndicator = `<i class="fas fa-exclamation-triangle long-shift-warning" title="Long shift (${duration.toFixed(1)}h)"></i>`;
+        }
+
+        badgeContent = `<span class="shift-time">${formatTime(shift.start_time)} - ${formatTime(shift.end_time)} ${warningIndicator}</span>`;
         if (shift.shift_type) {
             badgeContent += `<span class="shift-type">${shift.shift_type}</span>`;
         }
@@ -229,6 +237,20 @@ function createShiftBadge(shift) {
             </div>
         </div>
     `;
+}
+
+// Calculate shift duration in hours
+function calculateShiftDuration(startTime, endTime) {
+    if (!startTime || !endTime) return 0;
+
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+
+    const startTotalMinutes = startHour * 60 + startMinute;
+    const endTotalMinutes = endHour * 60 + endMinute;
+
+    const durationMinutes = endTotalMinutes - startTotalMinutes;
+    return durationMinutes / 60;
 }
 
 // Format time from HH:MM:SS to HH:MM
@@ -538,6 +560,49 @@ function setupEventListeners() {
             const endTime = document.getElementById('shiftEndTime').value;
             if (startTime) shiftData.start_time = startTime;
             if (endTime) shiftData.end_time = endTime;
+
+            // Check for double-booking (if creating new shift)
+            if (!shiftId) {
+                const staffId = parseInt(document.getElementById('shiftStaffId').value);
+                const shiftDate = document.getElementById('shiftDate').value;
+                const staffName = document.getElementById('shiftStaffName').textContent;
+
+                const existingShifts = currentShifts.filter(shift =>
+                    shift.staff_id === staffId &&
+                    shift.date === shiftDate &&
+                    !shift.is_holiday &&
+                    !shift.is_day_off
+                );
+
+                if (existingShifts.length > 0) {
+                    const existingShiftTimes = existingShifts.map(s =>
+                        `${formatTime(s.start_time)} - ${formatTime(s.end_time)}`
+                    ).join(', ');
+
+                    alert(
+                        `❌ Double Booking Detected\n\n` +
+                        `${staffName} already has a shift on this day:\n` +
+                        `${existingShiftTimes}\n\n` +
+                        `Please delete the existing shift first or choose a different day.`
+                    );
+                    return; // Block shift creation
+                }
+            }
+
+            // Check for long shifts (> 8 hours) and warn user
+            const duration = calculateShiftDuration(startTime, endTime);
+            if (duration > 8) {
+                const staffName = document.getElementById('shiftStaffName').textContent;
+                const confirmLongShift = confirm(
+                    `⚠️ Long Shift Warning\n\n` +
+                    `This shift is ${duration.toFixed(1)} hours long for ${staffName}.\n` +
+                    `Shifts longer than 8 hours may require additional breaks.\n\n` +
+                    `Do you want to continue?`
+                );
+                if (!confirmLongShift) {
+                    return; // Cancel shift creation
+                }
+            }
         }
 
         // Add optional fields only if they have values

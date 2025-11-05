@@ -246,10 +246,30 @@ textarea:disabled {
     background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
 }
 
+.long-shift {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+}
+
 .shift-status {
     font-weight: 600;
     display: block;
     font-size: 0.7rem;
+}
+
+.long-shift-warning {
+    color: #fbbf24;
+    font-size: 0.65rem;
+    margin-left: 4px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 
 /* Toast notifications */
