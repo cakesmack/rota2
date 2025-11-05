@@ -8,7 +8,8 @@ let currentStaffId = null;
 let currentStaffInfo = null;
 let currentShifts = [];
 let allStaff = [];
-let currentView = 'fullRota'; // 'fullRota' or 'myShifts'
+let currentView = 'fullRota'; // 'fullRota', 'myShifts', 'holidayRequests', or 'shiftSwaps'
+let shiftSwaps = [];
 
 // Days of the week
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -338,9 +339,11 @@ function switchView(view) {
     const fullRotaTab = document.getElementById('fullRotaTab');
     const myShiftsTab = document.getElementById('myShiftsTab');
     const holidayRequestsTab = document.getElementById('holidayRequestsTab');
+    const shiftSwapsTab = document.getElementById('shiftSwapsTab');
     const fullRotaView = document.getElementById('fullRotaView');
     const myShiftsView = document.getElementById('myShiftsView');
     const holidayRequestsView = document.getElementById('holidayRequestsView');
+    const shiftSwapsView = document.getElementById('shiftSwapsView');
     const weeklyHoursSummary = document.getElementById('weeklyHoursSummary');
 
     // Reset all tabs
@@ -350,11 +353,13 @@ function switchView(view) {
     fullRotaTab.className = inactiveClass;
     myShiftsTab.className = inactiveClass;
     holidayRequestsTab.className = inactiveClass;
+    shiftSwapsTab.className = inactiveClass;
 
     // Hide all views
     fullRotaView.classList.add('hidden');
     myShiftsView.classList.add('hidden');
     holidayRequestsView.classList.add('hidden');
+    shiftSwapsView.classList.add('hidden');
     weeklyHoursSummary.classList.add('hidden');
 
     if (view === 'fullRota') {
@@ -370,6 +375,10 @@ function switchView(view) {
         holidayRequestsTab.className = activeClass;
         holidayRequestsView.classList.remove('hidden');
         loadHolidayRequests();
+    } else if (view === 'shiftSwaps') {
+        shiftSwapsTab.className = activeClass;
+        shiftSwapsView.classList.remove('hidden');
+        loadShiftSwaps();
     }
 }
 
@@ -386,6 +395,10 @@ function setupEventListeners() {
 
     document.getElementById('holidayRequestsTab').addEventListener('click', () => {
         switchView('holidayRequests');
+    });
+
+    document.getElementById('shiftSwapsTab').addEventListener('click', () => {
+        switchView('shiftSwaps');
     });
 
     // Previous week
@@ -604,6 +617,375 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Shift Swap Functions
+
+async function loadShiftSwaps() {
+    try {
+        const response = await fetch('/api/shift-swaps/my-swaps', {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            shiftSwaps = await response.json();
+            renderShiftSwaps();
+            updateSwapNotificationBadge();
+        } else {
+            console.error('Failed to load shift swaps');
+        }
+    } catch (error) {
+        console.error('Error loading shift swaps:', error);
+    }
+}
+
+function updateSwapNotificationBadge() {
+    const badge = document.getElementById('swapNotificationBadge');
+    // Count proposed swaps where current user is the recipient
+    const pendingForMe = shiftSwaps.filter(swap =>
+        swap.status === 'proposed' && swap.recipient_staff_id === currentStaffId
+    ).length;
+
+    if (pendingForMe > 0) {
+        badge.textContent = pendingForMe;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function renderShiftSwaps() {
+    const container = document.getElementById('shiftSwapsList');
+
+    if (shiftSwaps.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-exchange-alt text-6xl mb-4 text-gray-300"></i>
+                <p class="text-lg">No shift swaps yet</p>
+                <p class="text-sm">Click "Propose Swap" to request a shift exchange</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Separate incoming and outgoing
+    const incoming = shiftSwaps.filter(s => s.recipient_staff_id === currentStaffId && s.status !== 'cancelled');
+    const outgoing = shiftSwaps.filter(s => s.initiator_staff_id === currentStaffId && s.status !== 'cancelled');
+
+    let html = '';
+
+    if (incoming.length > 0) {
+        html += `<h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-arrow-down mr-2 text-blue-500"></i>Incoming Requests</h3>`;
+        html += incoming.map(swap => renderShiftSwapCard(swap, 'incoming')).join('');
+    }
+
+    if (outgoing.length > 0) {
+        html += `<h3 class="text-lg font-bold text-gray-800 mb-4 mt-6"><i class="fas fa-arrow-up mr-2 text-purple-500"></i>Outgoing Proposals</h3>`;
+        html += outgoing.map(swap => renderShiftSwapCard(swap, 'outgoing')).join('');
+    }
+
+    container.innerHTML = html;
+}
+
+function renderShiftSwapCard(swap, direction) {
+    const statusColor = {
+        'proposed': 'bg-yellow-100 text-yellow-800',
+        'accepted': 'bg-blue-100 text-blue-800',
+        'approved': 'bg-green-100 text-green-800',
+        'denied': 'bg-red-100 text-red-800'
+    }[swap.status];
+
+    const statusIcon = {
+        'proposed': 'fa-clock',
+        'accepted': 'fa-check',
+        'approved': 'fa-check-circle',
+        'denied': 'fa-times-circle'
+    }[swap.status];
+
+    const initiatorShift = swap.initiator_shift;
+    const recipientShift = swap.recipient_shift;
+    const otherPerson = direction === 'incoming' ? swap.initiator_staff : swap.recipient_staff;
+
+    const initiatorDate = new Date(initiatorShift.date).toLocaleDateString();
+    const recipientDate = recipientShift ? new Date(recipientShift.date).toLocaleDateString() : null;
+
+    let actions = '';
+    if (direction === 'incoming' && swap.status === 'proposed') {
+        actions = `
+            <div class="flex gap-2 pt-4 border-t border-gray-200">
+                <button onclick="acceptShiftSwap(${swap.id})"
+                    class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                    <i class="fas fa-check mr-2"></i>Accept
+                </button>
+                <button onclick="declineShiftSwap(${swap.id})"
+                    class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                    <i class="fas fa-times mr-2"></i>Decline
+                </button>
+            </div>
+        `;
+    } else if (direction === 'outgoing' && (swap.status === 'proposed' || swap.status === 'accepted')) {
+        actions = `
+            <div class="flex justify-end pt-4 border-t border-gray-200">
+                <button onclick="cancelShiftSwap(${swap.id})"
+                    class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                    <i class="fas fa-trash mr-2"></i>Cancel
+                </button>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="border border-gray-200 rounded-lg p-4 mb-4 hover:shadow-md transition duration-200">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="${statusColor} px-3 py-1 rounded-full text-sm font-semibold">
+                            <i class="fas ${statusIcon} mr-1"></i>${swap.status.toUpperCase()}
+                        </span>
+                        <span class="text-gray-600 text-sm">${direction === 'incoming' ? 'from' : 'to'} <strong>${otherPerson.name}</strong></span>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-3 mb-2">
+                        <div class="font-semibold text-gray-700 mb-1">
+                            <i class="fas fa-arrow-right mr-2 text-purple-500"></i>
+                            ${direction === 'incoming' ? 'They' : 'You'} give: ${initiatorDate}
+                        </div>
+                        <div class="text-sm text-gray-600 ml-6">
+                            ${initiatorShift.start_time} - ${initiatorShift.end_time}
+                            ${initiatorShift.shift_type ? ` (${initiatorShift.shift_type})` : ''}
+                        </div>
+                    </div>
+
+                    ${recipientShift ? `
+                        <div class="bg-gray-50 rounded-lg p-3">
+                            <div class="font-semibold text-gray-700 mb-1">
+                                <i class="fas fa-arrow-left mr-2 text-blue-500"></i>
+                                ${direction === 'incoming' ? 'You' : 'They'} give: ${recipientDate}
+                            </div>
+                            <div class="text-sm text-gray-600 ml-6">
+                                ${recipientShift.start_time} - ${recipientShift.end_time}
+                                ${recipientShift.shift_type ? ` (${recipientShift.shift_type})` : ''}
+                            </div>
+                        </div>
+                    ` : `<div class="text-sm text-gray-500 italic ml-6">One-way give-away</div>`}
+
+                    ${swap.message ? `
+                        <div class="mt-3 text-sm text-gray-600 bg-blue-50 p-2 rounded border-l-4 border-blue-400">
+                            <i class="fas fa-comment mr-2"></i>${swap.message}
+                        </div>
+                    ` : ''}
+
+                    ${swap.status === 'accepted' ? `
+                        <div class="mt-3 text-sm text-blue-600 font-semibold">
+                            <i class="fas fa-hourglass-half mr-2"></i>Awaiting manager approval
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            ${actions}
+        </div>
+    `;
+}
+
+async function openProposeSwapModal() {
+    document.getElementById('proposeSwapModal').classList.remove('hidden');
+    await populateSwapModal();
+}
+
+function closeProposeSwapModal() {
+    document.getElementById('proposeSwapModal').classList.add('hidden');
+    document.getElementById('proposeSwapForm').reset();
+    document.getElementById('swapErrorMessage').classList.add('hidden');
+}
+
+async function populateSwapModal() {
+    // Get my upcoming shifts (not holidays or days off)
+    const myShifts = currentShifts.filter(shift =>
+        shift.staff_id === currentStaffId &&
+        !shift.is_holiday &&
+        !shift.is_day_off &&
+        new Date(shift.date) >= new Date()
+    );
+
+    const myShiftSelect = document.getElementById('myShiftSelect');
+    myShiftSelect.innerHTML = '<option value="">Select a shift...</option>';
+    myShifts.forEach(shift => {
+        const date = new Date(shift.date).toLocaleDateString();
+        myShiftSelect.innerHTML += `
+            <option value="${shift.id}">
+                ${date} - ${shift.start_time} to ${shift.end_time}
+                ${shift.shift_type ? ` (${shift.shift_type})` : ''}
+            </option>
+        `;
+    });
+
+    // Get other staff members
+    const recipientSelect = document.getElementById('recipientSelect');
+    recipientSelect.innerHTML = '<option value="">Select staff member...</option>';
+    allStaff.forEach(staff => {
+        if (staff.id !== currentStaffId) {
+            recipientSelect.innerHTML += `<option value="${staff.id}">${staff.name}</option>`;
+        }
+    });
+
+    // Setup recipient change handler to load their shifts
+    recipientSelect.addEventListener('change', async (e) => {
+        const recipientId = parseInt(e.target.value);
+        if (!recipientId) {
+            document.getElementById('recipientShiftSelect').innerHTML = '<option value="">None - just give away my shift</option>';
+            return;
+        }
+
+        // Get recipient's upcoming shifts
+        const recipientShifts = currentShifts.filter(shift =>
+            shift.staff_id === recipientId &&
+            !shift.is_holiday &&
+            !shift.is_day_off &&
+            new Date(shift.date) >= new Date()
+        );
+
+        const recipientShiftSelect = document.getElementById('recipientShiftSelect');
+        recipientShiftSelect.innerHTML = '<option value="">None - just give away my shift</option>';
+        recipientShifts.forEach(shift => {
+            const date = new Date(shift.date).toLocaleDateString();
+            recipientShiftSelect.innerHTML += `
+                <option value="${shift.id}">
+                    ${date} - ${shift.start_time} to ${shift.end_time}
+                    ${shift.shift_type ? ` (${shift.shift_type})` : ''}
+                </option>
+            `;
+        });
+    });
+}
+
+// Propose swap form submission - using delegation since modal is dynamic
+document.addEventListener('DOMContentLoaded', () => {
+    const proposeSwapForm = document.getElementById('proposeSwapForm');
+    if (proposeSwapForm) {
+        proposeSwapForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const myShiftId = parseInt(document.getElementById('myShiftSelect').value);
+            const recipientStaffId = parseInt(document.getElementById('recipientSelect').value);
+            const recipientShiftId = document.getElementById('recipientShiftSelect').value;
+            const message = document.getElementById('swapMessage').value;
+
+            const errorDiv = document.getElementById('swapErrorMessage');
+            const errorText = document.getElementById('swapErrorText');
+
+            errorDiv.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/shift-swaps', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Auth.getToken()}`
+                    },
+                    body: JSON.stringify({
+                        initiator_shift_id: myShiftId,
+                        recipient_staff_id: recipientStaffId,
+                        recipient_shift_id: recipientShiftId ? parseInt(recipientShiftId) : null,
+                        message: message || null
+                    })
+                });
+
+                if (response.ok) {
+                    closeProposeSwapModal();
+                    await loadShiftSwaps();
+                    alert('Shift swap proposal sent successfully!');
+                } else {
+                    const error = await response.json();
+                    errorText.textContent = error.detail || 'Failed to propose swap';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error proposing swap:', error);
+                errorText.textContent = 'Failed to propose swap. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    }
+});
+
+async function acceptShiftSwap(swapId) {
+    if (!confirm('Accept this shift swap proposal?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/shift-swaps/${swapId}/accept`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            await loadShiftSwaps();
+            alert('Shift swap accepted! Awaiting manager approval.');
+        } else {
+            const error = await response.json();
+            alert(error.detail || 'Failed to accept swap');
+        }
+    } catch (error) {
+        console.error('Error accepting swap:', error);
+        alert('Failed to accept swap');
+    }
+}
+
+async function declineShiftSwap(swapId) {
+    if (!confirm('Decline this shift swap proposal?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/shift-swaps/${swapId}/decline`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            await loadShiftSwaps();
+            alert('Shift swap declined');
+        } else {
+            const error = await response.json();
+            alert(error.detail || 'Failed to decline swap');
+        }
+    } catch (error) {
+        console.error('Error declining swap:', error);
+        alert('Failed to decline swap');
+    }
+}
+
+async function cancelShiftSwap(swapId) {
+    if (!confirm('Cancel this shift swap proposal?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/shift-swaps/${swapId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            await loadShiftSwaps();
+            alert('Shift swap cancelled');
+        } else {
+            const error = await response.json();
+            alert(error.detail || 'Failed to cancel swap');
+        }
+    } catch (error) {
+        console.error('Error cancelling swap:', error);
+        alert('Failed to cancel swap');
+    }
+}
 
 // Initialize when page loads
 init();

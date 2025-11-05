@@ -914,22 +914,229 @@ async function denyHolidayRequest(requestId) {
     }
 }
 
-// Load pending requests badge on page load
+// Shift Swap Functions
+
+async function openShiftSwapsModal() {
+    document.getElementById('shiftSwapsModal').classList.remove('hidden');
+    await loadShiftSwaps();
+}
+
+function closeShiftSwapsModal() {
+    document.getElementById('shiftSwapsModal').classList.add('hidden');
+}
+
+async function loadShiftSwaps() {
+    try {
+        const response = await fetch('/api/shift-swaps/pending', {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            const swaps = await response.json();
+            renderShiftSwaps(swaps);
+            updatePendingSwapsBadge(swaps.length);
+        } else {
+            console.error('Failed to load shift swaps');
+        }
+    } catch (error) {
+        console.error('Error loading shift swaps:', error);
+    }
+}
+
+function updatePendingSwapsBadge(count) {
+    const badge = document.getElementById('pendingSwapsBadge');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function renderShiftSwaps(swaps) {
+    const container = document.getElementById('shiftSwapsContent');
+
+    if (swaps.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-exchange-alt text-6xl mb-4 text-gray-300"></i>
+                <p class="text-lg">No pending shift swaps</p>
+            </div>
+        `;
+        return;
+    }
+
+    const html = swaps.map(swap => {
+        const initiatorDate = new Date(swap.initiator_shift.date).toLocaleDateString();
+        const recipientDate = swap.recipient_shift ? new Date(swap.recipient_shift.date).toLocaleDateString() : null;
+        const created = new Date(swap.created_at).toLocaleDateString();
+
+        const swapType = swap.recipient_shift ? 'True Swap' : 'Give-away';
+        const swapTypeColor = swap.recipient_shift ? 'text-purple-600' : 'text-blue-600';
+
+        return `
+            <div class="border border-gray-200 rounded-lg p-6 mb-4 hover:shadow-lg transition duration-200">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
+                                <i class="fas fa-clock mr-1"></i>AWAITING APPROVAL
+                            </span>
+                            <span class="${swapTypeColor} text-sm font-semibold">
+                                <i class="fas fa-exchange-alt mr-1"></i>${swapType}
+                            </span>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                            <div class="mb-3">
+                                <div class="font-bold text-gray-800 mb-1">
+                                    <i class="fas fa-user mr-2 text-purple-500"></i>
+                                    ${swap.initiator_staff.name} gives:
+                                </div>
+                                <div class="ml-6 text-gray-700">
+                                    <i class="fas fa-calendar mr-2"></i>${initiatorDate}
+                                    <span class="ml-2">
+                                        ${swap.initiator_shift.start_time} - ${swap.initiator_shift.end_time}
+                                        ${swap.initiator_shift.shift_type ? ` (${swap.initiator_shift.shift_type})` : ''}
+                                    </span>
+                                </div>
+                            </div>
+
+                            ${recipientDate ? `
+                                <div class="pt-3 border-t border-gray-200">
+                                    <div class="font-bold text-gray-800 mb-1">
+                                        <i class="fas fa-user mr-2 text-blue-500"></i>
+                                        ${swap.recipient_staff.name} gives:
+                                    </div>
+                                    <div class="ml-6 text-gray-700">
+                                        <i class="fas fa-calendar mr-2"></i>${recipientDate}
+                                        <span class="ml-2">
+                                            ${swap.recipient_shift.start_time} - ${swap.recipient_shift.end_time}
+                                            ${swap.recipient_shift.shift_type ? ` (${swap.recipient_shift.shift_type})` : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="pt-3 border-t border-gray-200 text-gray-600 text-sm italic">
+                                    <i class="fas fa-arrow-right mr-2"></i>
+                                    One-way transfer to ${swap.recipient_staff.name}
+                                </div>
+                            `}
+                        </div>
+
+                        ${swap.message ? `
+                            <div class="text-gray-600 text-sm mt-2 bg-blue-50 p-3 rounded border-l-4 border-blue-400">
+                                <i class="fas fa-comment mr-2"></i>
+                                <em>"${swap.message}"</em>
+                            </div>
+                        ` : ''}
+
+                        <div class="text-gray-500 text-xs mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>Requested on ${created}, accepted by ${swap.recipient_staff.name}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-4 border-t border-gray-200">
+                    <button onclick="approveShiftSwap(${swap.id})"
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        <i class="fas fa-check mr-2"></i>Approve Swap
+                    </button>
+                    <button onclick="denyShiftSwap(${swap.id})"
+                        class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                        <i class="fas fa-times mr-2"></i>Deny Swap
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+async function approveShiftSwap(swapId) {
+    if (!confirm('Approve this shift swap?\n\nThe shifts will be automatically reassigned.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/shift-swaps/${swapId}/approve`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            showToast('Shift swap approved! Shifts updated.', 'success');
+            await loadShiftSwaps();
+            await loadWeekRota(); // Refresh the rota
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to approve swap', 'error');
+        }
+    } catch (error) {
+        console.error('Error approving shift swap:', error);
+        showToast('Failed to approve swap', 'error');
+    }
+}
+
+async function denyShiftSwap(swapId) {
+    if (!confirm('Deny this shift swap?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/shift-swaps/${swapId}/deny`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            showToast('Shift swap denied', 'success');
+            await loadShiftSwaps();
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to deny swap', 'error');
+        }
+    } catch (error) {
+        console.error('Error denying shift swap:', error);
+        showToast('Failed to deny swap', 'error');
+    }
+}
+
+// Load pending requests and swaps badges on page load
 window.addEventListener('DOMContentLoaded', async () => {
     if (Auth.isManager()) {
         try {
-            const response = await fetch('/api/holiday-requests/pending', {
+            // Load holiday requests count
+            const holidayResponse = await fetch('/api/holiday-requests/pending', {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
             });
 
-            if (response.ok) {
-                const requests = await response.json();
+            if (holidayResponse.ok) {
+                const requests = await holidayResponse.json();
                 updatePendingBadge(requests.length);
             }
+
+            // Load shift swaps count
+            const swapsResponse = await fetch('/api/shift-swaps/pending', {
+                headers: {
+                    'Authorization': `Bearer ${Auth.getToken()}`
+                }
+            });
+
+            if (swapsResponse.ok) {
+                const swaps = await swapsResponse.json();
+                updatePendingSwapsBadge(swaps.length);
+            }
         } catch (error) {
-            console.error('Error loading pending requests count:', error);
+            console.error('Error loading pending counts:', error);
         }
     }
 });
