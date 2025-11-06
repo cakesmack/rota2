@@ -1200,10 +1200,71 @@ async function resendInvitation(staffId) {
     }
 }
 
+// Manager Self-Registration to Roster
+
+async function checkManagerStaffStatus() {
+    try {
+        const response = await fetch('/api/auth/me/staff', {
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.status === 404) {
+            // Manager doesn't have a staff record - show the button
+            const addMyselfBtn = document.getElementById('addMyselfBtn');
+            if (addMyselfBtn) {
+                addMyselfBtn.classList.remove('hidden');
+            }
+        }
+    } catch (error) {
+        console.error('Error checking manager staff status:', error);
+    }
+}
+
+async function addMyselfToRoster() {
+    if (!confirm('Add yourself to the roster?\n\nThis will create a staff record for you so you can assign shifts to yourself.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/staff/add-myself', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            const staff = await response.json();
+            showToast(`Success! You've been added to the roster as "${staff.name}"`, 'success');
+
+            // Hide the button
+            const addMyselfBtn = document.getElementById('addMyselfBtn');
+            if (addMyselfBtn) {
+                addMyselfBtn.classList.add('hidden');
+            }
+
+            // Reload staff list and rota
+            await loadStaff();
+            await loadWeekRota();
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to add yourself to roster', 'error');
+        }
+    } catch (error) {
+        console.error('Error adding self to roster:', error);
+        showToast('Failed to add yourself to roster', 'error');
+    }
+}
+
 // Load pending requests and swaps badges on page load
 window.addEventListener('DOMContentLoaded', async () => {
     if (Auth.isManager()) {
         try {
+            // Check if manager has staff record
+            await checkManagerStaffStatus();
+
             // Load holiday requests count
             const holidayResponse = await fetch('/api/holiday-requests/pending', {
                 headers: {

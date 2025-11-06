@@ -87,6 +87,38 @@ def read_staff_with_invitation_status(
     return crud.get_staff_with_invitation_status(db)
 
 
+@app.post("/api/staff/add-myself", response_model=schemas.Staff, status_code=status.HTTP_201_CREATED)
+def add_manager_to_roster(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_manager)
+):
+    """Add current manager to roster (Manager only, one-time action)"""
+    # Check if manager already has a staff record
+    if current_user.staff_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You already have a staff record"
+        )
+
+    # Create staff record for manager
+    staff_data = schemas.StaffCreate(
+        name=current_user.username,
+        email=current_user.email,
+        phone=None,
+        role="Manager"
+    )
+
+    new_staff = crud.create_staff(db=db, staff=staff_data)
+
+    # Link user to staff record
+    current_user.staff_id = new_staff.id
+    new_staff.invitation_accepted_at = datetime.utcnow()  # Mark as active
+    db.commit()
+    db.refresh(new_staff)
+
+    return new_staff
+
+
 @app.get("/api/staff/{staff_id}", response_model=schemas.Staff)
 def read_staff(
     staff_id: int,
