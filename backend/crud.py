@@ -454,7 +454,7 @@ def invalidate_previous_invitations(db: Session, staff_id: int):
 
 def get_staff_with_invitation_status(db: Session) -> List[dict]:
     """Get all staff with their invitation and account status"""
-    staff_list = get_all_staff(db)
+    staff_list = get_staff_list(db)
     result = []
 
     for staff in staff_list:
