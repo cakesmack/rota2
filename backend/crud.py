@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from datetime import date, timedelta, datetime
 from typing import List, Optional
+import uuid
 from . import models, schemas
 
 
@@ -339,3 +340,153 @@ def deny_shift_swap(db: Session, swap_id: int, reviewer_id: int) -> Optional[mod
     db.commit()
     db.refresh(db_swap)
     return db_swap
+
+
+# Staff Invitation CRUD operations
+def create_staff_invitation(db: Session, staff_id: int, email: str) -> models.StaffInvitation:
+    """Create a new staff invitation with unique token"""
+    # Generate unique token
+    token = str(uuid.uuid4())
+
+    # Set expiry to 7 days from now
+    expires_at = datetime.utcnow() + timedelta(days=7)
+
+    db_invitation = models.StaffInvitation(
+        staff_id=staff_id,
+        token=token,
+        email=email,
+        expires_at=expires_at
+    )
+
+    db.add(db_invitation)
+
+    # Update staff record
+    staff = get_staff(db, staff_id)
+    if staff:
+        staff.invitation_sent_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(db_invitation)
+    return db_invitation
+
+
+def get_invitation_by_token(db: Session, token: str) -> Optional[models.StaffInvitation]:
+    """Get invitation by token"""
+    return db.query(models.StaffInvitation).filter(
+        models.StaffInvitation.token == token
+    ).first()
+
+
+def verify_invitation_token(db: Session, token: str) -> tuple[bool, Optional[models.StaffInvitation], Optional[str]]:
+    """
+    Verify if invitation token is valid
+    Returns: (is_valid, invitation, error_message)
+    """
+    invitation = get_invitation_by_token(db, token)
+
+    if not invitation:
+        return False, None, "Invalid invitation token"
+
+    if invitation.used_at:
+        return False, invitation, "This invitation has already been used"
+
+    if datetime.utcnow() > invitation.expires_at:
+        return False, invitation, "This invitation has expired"
+
+    return True, invitation, None
+
+
+def accept_invitation(db: Session, token: str, username: str, hashed_password: str) -> Optional[models.User]:
+    """
+    Accept invitation and create user account
+    Returns created User or None if invitation invalid
+    """
+    is_valid, invitation, error = verify_invitation_token(db, token)
+
+    if not is_valid:
+        return None
+
+    # Get staff record
+    staff = get_staff(db, invitation.staff_id)
+    if not staff:
+        return None
+
+    # Check if user with this email already exists
+    existing_user = db.query(models.User).filter(models.User.email == invitation.email).first()
+    if existing_user:
+        return None
+
+    # Create user account
+    db_user = models.User(
+        username=username,
+        email=invitation.email,
+        hashed_password=hashed_password,
+        role="staff",
+        staff_id=staff.id,
+        is_active=True
+    )
+
+    db.add(db_user)
+
+    # Mark invitation as used
+    invitation.used_at = datetime.utcnow()
+
+    # Update staff record
+    staff.invitation_accepted_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def invalidate_previous_invitations(db: Session, staff_id: int):
+    """Mark all previous invitations for this staff as used (when resending)"""
+    invitations = db.query(models.StaffInvitation).filter(
+        models.StaffInvitation.staff_id == staff_id,
+        models.StaffInvitation.used_at.is_(None)
+    ).all()
+
+    for invitation in invitations:
+        invitation.used_at = datetime.utcnow()
+
+    db.commit()
+
+
+def get_staff_with_invitation_status(db: Session) -> List[dict]:
+    """Get all staff with their invitation and account status"""
+    staff_list = get_all_staff(db)
+    result = []
+
+    for staff in staff_list:
+        # Check if staff has a user account
+        has_account = staff.user is not None
+
+        # Determine invitation status
+        invitation_status = None
+        if has_account:
+            invitation_status = "active"
+        elif staff.invitation_sent_at and not staff.invitation_accepted_at:
+            # Check if invitation expired
+            latest_invitation = db.query(models.StaffInvitation).filter(
+                models.StaffInvitation.staff_id == staff.id,
+                models.StaffInvitation.used_at.is_(None)
+            ).order_by(models.StaffInvitation.created_at.desc()).first()
+
+            if latest_invitation and datetime.utcnow() > latest_invitation.expires_at:
+                invitation_status = "expired"
+            else:
+                invitation_status = "pending"
+
+        result.append({
+            "id": staff.id,
+            "name": staff.name,
+            "email": staff.email,
+            "phone": staff.phone,
+            "role": staff.role,
+            "invitation_sent_at": staff.invitation_sent_at,
+            "invitation_accepted_at": staff.invitation_accepted_at,
+            "has_account": has_account,
+            "invitation_status": invitation_status
+        })
+
+    return result

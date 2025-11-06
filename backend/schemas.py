@@ -163,3 +163,29 @@ class ShiftSwap(ShiftSwapBase):
 
     class Config:
         from_attributes = True
+
+
+# Staff Invitation Schemas
+class InvitationVerify(BaseModel):
+    """Response for verifying an invitation token"""
+    valid: bool
+    staff_name: Optional[str] = None
+    email: Optional[str] = None
+    error: Optional[str] = None
+
+
+class InvitationAccept(BaseModel):
+    """Request to accept an invitation and create user account"""
+    token: str
+    password: str
+
+
+class StaffWithInvitationStatus(Staff):
+    """Staff with additional invitation status fields"""
+    invitation_sent_at: Optional[datetime] = None
+    invitation_accepted_at: Optional[datetime] = None
+    has_account: bool = False
+    invitation_status: Optional[str] = None  # "pending", "accepted", "expired", "active"
+
+    class Config:
+        from_attributes = True

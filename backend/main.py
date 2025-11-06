@@ -9,8 +9,9 @@ import os
 
 from . import models, schemas, crud
 from .database import engine, get_db
-from .routers import auth, holiday_requests, shift_swaps
+from .routers import auth, holiday_requests, shift_swaps, invitations
 from .auth import get_current_user, get_current_active_manager
+from .email_service import send_invitation_email
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -30,6 +31,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(holiday_requests.router)
 app.include_router(shift_swaps.router)
+app.include_router(invitations.router)
 
 # Serve frontend files
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
@@ -49,8 +51,20 @@ def create_staff(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_manager)
 ):
-    """Create a new staff member (Manager only)"""
-    return crud.create_staff(db=db, staff=staff)
+    """Create a new staff member and send invitation if email provided (Manager only)"""
+    # Create staff record
+    new_staff = crud.create_staff(db=db, staff=staff)
+
+    # If email provided, send invitation
+    if new_staff.email:
+        try:
+            invitation = crud.create_staff_invitation(db, new_staff.id, new_staff.email)
+            send_invitation_email(new_staff.name, new_staff.email, invitation.token)
+        except Exception as e:
+            print(f"Failed to send invitation email: {e}")
+            # Don't fail the staff creation if email fails
+
+    return new_staff
 
 
 @app.get("/api/staff", response_model=List[schemas.Staff])
@@ -62,6 +76,15 @@ def read_staff_list(
 ):
     """Get list of all staff members (Authenticated users)"""
     return crud.get_staff_list(db, skip=skip, limit=limit)
+
+
+@app.get("/api/staff-with-status")
+def read_staff_with_invitation_status(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_manager)
+):
+    """Get list of all staff members with invitation status (Manager only)"""
+    return crud.get_staff_with_invitation_status(db)
 
 
 @app.get("/api/staff/{staff_id}", response_model=schemas.Staff)

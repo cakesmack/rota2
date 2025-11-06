@@ -294,7 +294,7 @@ function formatTime(timeStr) {
 // Load all staff
 async function loadStaff() {
     try {
-        const response = await fetch('/api/staff', {
+        const response = await fetch('/api/staff-with-status', {
             headers: {
                 'Authorization': `Bearer ${Auth.getToken()}`
             }
@@ -321,27 +321,53 @@ function renderStaffList() {
         return;
     }
 
-    staffList.innerHTML = staffMembers.map(staff => `
-        <div class="staff-card">
-            <div class="staff-name">
-                <i class="fas fa-user-circle text-blue-600 mr-2"></i>
-                ${staff.name}
-            </div>
-            ${staff.role ? `<div class="staff-role"><i class="fas fa-briefcase mr-1"></i>${staff.role}</div>` : ''}
-            <div class="staff-contact">
-                ${staff.email ? `<div><i class="fas fa-envelope mr-2"></i>${staff.email}</div>` : ''}
-                ${staff.phone ? `<div><i class="fas fa-phone mr-2"></i>${staff.phone}</div>` : ''}
-            </div>
-            <div class="staff-actions">
-                <button onclick="editStaff(${staff.id})" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition duration-200">
-                    <i class="fas fa-edit mr-1"></i>Edit
+    staffList.innerHTML = staffMembers.map(staff => {
+        // Determine status badge
+        let statusBadge = '';
+        if (staff.invitation_status === 'active') {
+            statusBadge = '<span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"><i class="fas fa-check-circle mr-1"></i>Active</span>';
+        } else if (staff.invitation_status === 'pending') {
+            statusBadge = '<span class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full"><i class="fas fa-clock mr-1"></i>Invitation Sent</span>';
+        } else if (staff.invitation_status === 'expired') {
+            statusBadge = '<span class="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full"><i class="fas fa-exclamation-triangle mr-1"></i>Invitation Expired</span>';
+        }
+
+        // Add resend button for pending/expired invitations
+        let resendButton = '';
+        if (staff.invitation_status === 'pending' || staff.invitation_status === 'expired') {
+            resendButton = `
+                <button onclick="resendInvitation(${staff.id})" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition duration-200" title="Resend invitation email">
+                    <i class="fas fa-envelope mr-1"></i>Resend
                 </button>
-                <button onclick="deleteStaffMember(${staff.id})" class="bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition duration-200">
-                    <i class="fas fa-trash mr-1"></i>Delete
-                </button>
+            `;
+        }
+
+        return `
+            <div class="staff-card">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="staff-name">
+                        <i class="fas fa-user-circle text-blue-600 mr-2"></i>
+                        ${staff.name}
+                    </div>
+                    ${statusBadge}
+                </div>
+                ${staff.role ? `<div class="staff-role"><i class="fas fa-briefcase mr-1"></i>${staff.role}</div>` : ''}
+                <div class="staff-contact">
+                    ${staff.email ? `<div><i class="fas fa-envelope mr-2"></i>${staff.email}</div>` : ''}
+                    ${staff.phone ? `<div><i class="fas fa-phone mr-2"></i>${staff.phone}</div>` : ''}
+                </div>
+                <div class="staff-actions">
+                    ${resendButton}
+                    <button onclick="editStaff(${staff.id})" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition duration-200">
+                        <i class="fas fa-edit mr-1"></i>Edit
+                    </button>
+                    <button onclick="deleteStaffMember(${staff.id})" class="bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition duration-200">
+                        <i class="fas fa-trash mr-1"></i>Delete
+                    </button>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Staff Modal functions
@@ -569,7 +595,36 @@ function setupEventListeners() {
             }
 
             if (response.ok) {
-                showToast(staffId ? 'Staff member updated successfully' : 'Staff member added successfully');
+                const createdStaff = await response.json();
+
+                if (staffId) {
+                    showToast('Staff member updated successfully');
+                } else {
+                    showToast('Staff member added! Invitation sent to ' + createdStaff.email);
+
+                    // Get test invitation link for development
+                    try {
+                        const testResponse = await fetch(`/api/invitations/test/${createdStaff.id}`, {
+                            headers: {
+                                'Authorization': `Bearer ${Auth.getToken()}`
+                            }
+                        });
+
+                        if (testResponse.ok) {
+                            const testData = await testResponse.json();
+                            console.log('='.repeat(80));
+                            console.log('📧 NEW STAFF INVITATION - TEST LINK:');
+                            console.log(`Staff: ${createdStaff.name}`);
+                            console.log(`Email: ${createdStaff.email}`);
+                            console.log(`Token: ${testData.token}`);
+                            console.log(`\nInvitation URL:\n${testData.invitation_url}`);
+                            console.log('='.repeat(80));
+                        }
+                    } catch (err) {
+                        console.log('Could not fetch test invitation link');
+                    }
+                }
+
                 closeStaffModal();
                 loadStaff();
                 loadWeekRota();
@@ -1105,6 +1160,43 @@ async function denyShiftSwap(swapId) {
     } catch (error) {
         console.error('Error denying shift swap:', error);
         showToast('Failed to deny swap', 'error');
+    }
+}
+
+// Staff Invitation Functions
+
+async function resendInvitation(staffId) {
+    if (!confirm('Resend invitation email to this staff member?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/invitations/resend/${staffId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            showToast('Invitation resent successfully!', 'success');
+
+            // Show test link in console for development
+            console.log('='.repeat(80));
+            console.log('📧 Invitation Resent - TEST LINK:');
+            console.log(`Token: ${data.token}`);
+            console.log(`\nTo test, visit: http://localhost:8000/static/accept-invitation.html?token=${data.token}`);
+            console.log('='.repeat(80));
+
+            await loadStaff(); // Refresh staff list
+        } else {
+            const error = await response.json();
+            showToast(error.detail || 'Failed to resend invitation', 'error');
+        }
+    } catch (error) {
+        console.error('Error resending invitation:', error);
+        showToast('Failed to resend invitation', 'error');
     }
 }
 

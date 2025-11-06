@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accept Invitation - Rota Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen flex items-center justify-center px-4">
+
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto mb-4"></div>
+        <p class="text-gray-600">Verifying your invitation...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="hidden max-w-md w-full">
+        <div class="bg-white rounded-xl shadow-2xl p-8 text-center">
+            <div class="text-6xl text-red-500 mb-4">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-4">Invalid Invitation</h1>
+            <p id="errorMessage" class="text-gray-600 mb-6"></p>
+            <a href="/static/login.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+                <i class="fas fa-arrow-left mr-2"></i>Go to Login
+            </a>
+        </div>
+    </div>
+
+    <!-- Success State - Create Account Form -->
+    <div id="formState" class="hidden max-w-md w-full">
+        <div class="bg-white rounded-xl shadow-2xl p-8">
+            <div class="text-center mb-6">
+                <div class="text-5xl text-blue-600 mb-4">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Welcome!</h1>
+                <p class="text-gray-600">
+                    Hi <strong id="staffName"></strong>, set your password to access your account
+                </p>
+            </div>
+
+            <form id="acceptInvitationForm" class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-envelope mr-2 text-blue-600"></i>Email
+                    </label>
+                    <input type="email" id="email" readonly class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-lock mr-2 text-blue-600"></i>Password *
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="password" required minlength="8"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="togglePasswordVisibility('password', 'toggleIcon1')"
+                            class="absolute right-3 top-3 text-gray-500 hover:text-gray-700">
+                            <i id="toggleIcon1" class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-lock mr-2 text-blue-600"></i>Confirm Password *
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="confirmPassword" required minlength="8"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="togglePasswordVisibility('confirmPassword', 'toggleIcon2')"
+                            class="absolute right-3 top-3 text-gray-500 hover:text-gray-700">
+                            <i id="toggleIcon2" class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error Message -->
+                <div id="formErrorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <span id="formErrorText"></span>
+                </div>
+
+                <button type="submit" id="submitButton"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 transform hover:scale-105">
+                    <i class="fas fa-check-circle mr-2"></i>Create My Account
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let invitationToken = null;
+
+        // Get token from URL params
+        function getTokenFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('token');
+        }
+
+        // Show error state
+        function showError(message) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('formState').classList.add('hidden');
+            document.getElementById('errorState').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // Show form state
+        function showForm(staffName, email) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('errorState').classList.add('hidden');
+            document.getElementById('formState').classList.remove('hidden');
+            document.getElementById('staffName').textContent = staffName;
+            document.getElementById('email').value = email;
+        }
+
+        // Toggle password visibility
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Verify invitation token
+        async function verifyToken(token) {
+            try {
+                const response = await fetch(`/api/invitations/verify/${token}`);
+                const data = await response.json();
+
+                if (data.valid) {
+                    showForm(data.staff_name, data.email);
+                } else {
+                    showError(data.error || 'This invitation is invalid or has expired.');
+                }
+            } catch (error) {
+                console.error('Error verifying token:', error);
+                showError('Failed to verify invitation. Please try again later.');
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('acceptInvitationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const errorDiv = document.getElementById('formErrorMessage');
+            const errorText = document.getElementById('formErrorText');
+            const submitButton = document.getElementById('submitButton');
+
+            // Hide previous errors
+            errorDiv.classList.add('hidden');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                errorText.textContent = 'Passwords do not match';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Validate password length
+            if (password.length < 8) {
+                errorText.textContent = 'Password must be at least 8 characters long';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Disable submit button
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating Account...';
+
+            try {
+                const response = await fetch('/api/invitations/accept', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: invitationToken,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Success! Show success message and redirect to login
+                    document.getElementById('formState').innerHTML = `
+                        <div class="text-center">
+                            <div class="text-6xl text-green-500 mb-4">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold text-gray-800 mb-4">Account Created!</h2>
+                            <p class="text-gray-600 mb-2">Your account has been successfully created.</p>
+                            <p class="text-gray-600 mb-6">
+                                Username: <strong>${data.username}</strong>
+                            </p>
+                            <p class="text-gray-500 text-sm mb-6">Redirecting to login...</p>
+                            <a href="/static/login.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+                                Go to Login Now
+                            </a>
+                        </div>
+                    `;
+
+                    // Redirect after 3 seconds
+                    setTimeout(() => {
+                        window.location.href = '/static/login.html';
+                    }, 3000);
+                } else {
+                    errorText.textContent = data.detail || 'Failed to create account. Please try again.';
+                    errorDiv.classList.remove('hidden');
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Create My Account';
+                }
+            } catch (error) {
+                console.error('Error creating account:', error);
+                errorText.textContent = 'Failed to create account. Please try again later.';
+                errorDiv.classList.remove('hidden');
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Create My Account';
+            }
+        });
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            invitationToken = getTokenFromUrl();
+
+            if (!invitationToken) {
+                showError('No invitation token provided. Please check your invitation email for the correct link.');
+                return;
+            }
+
+            verifyToken(invitationToken);
+        });
+    </script>
+</body>
+</html>

@@ -26,9 +26,12 @@ class Staff(Base):
     email = Column(String, unique=True, index=True)
     phone = Column(String)
     role = Column(String)  # e.g., "Manager", "Waiter", "Chef", etc.
+    invitation_sent_at = Column(DateTime, nullable=True)
+    invitation_accepted_at = Column(DateTime, nullable=True)
 
     shifts = relationship("Shift", back_populates="staff")
     user = relationship("User", back_populates="staff", uselist=False)
+    invitations = relationship("StaffInvitation", back_populates="staff")
 
 
 class Shift(Base):
@@ -84,3 +87,17 @@ class ShiftSwap(Base):
     recipient_staff = relationship("Staff", foreign_keys=[recipient_staff_id])
     recipient_shift = relationship("Shift", foreign_keys=[recipient_shift_id])
     reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+
+class StaffInvitation(Base):
+    __tablename__ = "staff_invitations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
+    token = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    staff = relationship("Staff", back_populates="invitations")
